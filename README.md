@@ -1,2 +1,3 @@
 # space-invaders-rs
-Making space invaders on rust from zero to improve
+Trying to make space invaders from zero on Rust as one of the projects suggested [here](https://austinhenley.com/blog/challengingprojects.html).
+<br>Currently empty, uploading soon.
