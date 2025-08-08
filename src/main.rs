@@ -9,23 +9,19 @@ use sdl2::{
 
 use std::time::Duration;
 
-fn draw_spaceship(canvas: &mut sdl2::render::Canvas<sdl2::video::Window>, x: i32, y: i32, pixel_size: u32) {
-    let spaceship = [
-        [0, 1, 0],
-        [1, 1, 1],
-        [1, 0, 1],
-    ];
-    
+const PIXEL: u32 = 10;
+
+fn drawing(canvas: &mut sdl2::render::Canvas<sdl2::video::Window>, design: &Vec<Vec<i32>>, x: i32, y: i32) {
     canvas.set_draw_color(Color::WHITE);
 
-    for (row_idx, row) in spaceship.iter().enumerate() {
+    for (row_idx, row) in design.iter().enumerate() {
         for (col_idx, &pixel) in row.iter().enumerate() {
             if pixel == 1 {
                 let rect = Rect::new(
-                    x + (col_idx as i32 * pixel_size as i32),
-                    y + (row_idx as i32 * pixel_size as i32),
-                    pixel_size,
-                    pixel_size,
+                    x + (col_idx as i32 * PIXEL as i32),
+                    y + (row_idx as i32 * PIXEL as i32),
+                    PIXEL,
+                    PIXEL,
                 );
                 let _ = canvas.fill_rect(rect);
             }
@@ -35,6 +31,24 @@ fn draw_spaceship(canvas: &mut sdl2::render::Canvas<sdl2::video::Window>, x: i32
 
 
 pub fn main() {
+    let spaceship = vec![
+        vec![0, 1, 0],
+        vec![1, 1, 1],
+        vec![1, 0, 1],
+    ];
+
+    let alien_1 = vec![
+        vec![1, 1, 1],
+        vec![0, 1, 0],
+        vec![1, 0, 1],
+    ];
+
+    let alien_2 = vec![
+        vec![1, 1, 1, 1],
+        vec![0, 1, 1, 0],
+        vec![0, 1, 1, 0],
+    ];
+
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
@@ -46,6 +60,8 @@ pub fn main() {
 
     let mut canvas = window.into_canvas().build().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
+    
+    let mut pos_x = 100;
 
     let mut i = 0;
     'running: loop {
@@ -53,7 +69,9 @@ pub fn main() {
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
 
-        draw_spaceship(&mut canvas, 100, 100, 10);
+        drawing(&mut canvas, &spaceship, pos_x, 550);
+        drawing(&mut canvas, &alien_1, 400, 100); 
+        drawing(&mut canvas, &alien_2, 200, 100);
 
         for event in event_pump.poll_iter() {
             match event {
@@ -61,6 +79,17 @@ pub fn main() {
                 Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                     break 'running
                 },
+
+                Event::KeyDown { keycode: Some(Keycode::A), ..} => {
+                    pos_x -= 10;
+                    pos_x = pos_x.clamp(0, 770);
+                },
+
+                Event::KeyDown { keycode: Some(Keycode::D), ..} => {
+                    pos_x += 10;
+                    pos_x = pos_x.clamp(0, 770);
+                },
+
                 _ => {}
             }
         }
