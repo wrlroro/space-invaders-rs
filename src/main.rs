@@ -10,6 +10,8 @@ use sdl2::{
 use std::time::Duration;
 
 const PIXEL: u32 = 10;
+const WINDOW_W: i32 = 800;
+const WINDOW_H: i32 = 600;
 
 #[derive(Clone)]
 struct Alien {
@@ -44,6 +46,42 @@ impl Alien {
         drawing(canvas, &self.sprite, self.x, self.y)
     }
 
+    fn rect(&self) -> Rect {
+        let w = (self.sprite.get(0).map(|r| r.len()).unwrap_or(0) as u32) * PIXEL;
+        let h = (self.sprite.len() as u32) * PIXEL;
+        Rect::new(self.x, self.y, w, h)
+    }
+
+}
+
+struct Bullet {
+    x: i32,
+    y: i32,
+    vy: i32,
+    w: u32,
+    h: u32,
+    alive: bool,
+}
+
+impl Bullet {
+    fn new(x:i32, y: i32) -> Self {
+        Self { x, y, vy: 12, w: PIXEL, h: PIXEL * 2, alive: true }
+    }
+
+    fn update(&mut self) {
+        self.y -= self.vy;
+        if self.y + self.h as i32 <= 0 { self.alive = false; }
+    }
+
+    fn draw(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
+        if !self.alive { return; }
+        canvas.set_draw_color(Color::WHITE);
+        let _ = canvas.fill_rect(Rect::new(self.x, self.y, self.w, self.h));
+    }
+
+    fn rect(&self) -> Rect { 
+        Rect::new(self.x, self.y, self.w, self.h) 
+    }
 }
 
 fn drawing(canvas: &mut sdl2::render::Canvas<sdl2::video::Window>, design: &Vec<Vec<i32>>, x: i32, y: i32) {
@@ -72,6 +110,11 @@ pub fn main() {
         vec![1, 0, 1],
     ];
 
+    let spaceship_width = (spaceship[0].len() as i32) * PIXEL as i32;
+    let spaceship_y: i32 = WINDOW_H -50;
+    let mut spaceship_x: i32 = 100;
+
+
     let alien_1 = vec![
         vec![1, 1, 1],
         vec![0, 1, 0],
@@ -88,15 +131,13 @@ pub fn main() {
     let video_subsystem = sdl_context.video().unwrap();
 
     let window = video_subsystem
-        .window("space-invade-rs", 800, 600)
+        .window("space-invade-rs", WINDOW_W as u32, WINDOW_H as u32)
         .position_centered()
         .build()
         .unwrap();
 
     let mut canvas = window.into_canvas().build().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
-
-    let mut pos_x = 100;
 
     let mut aliens = vec![
         Alien::new(alien_1.clone(), 100, 200, 3),
@@ -115,7 +156,7 @@ pub fn main() {
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
 
-        drawing(&mut canvas, &spaceship, pos_x, 550);
+        drawing(&mut canvas, &spaceship, spaceship_x, spaceship_y);
 
         for alien in &aliens {
             alien.draw(&mut canvas);
@@ -129,19 +170,29 @@ pub fn main() {
                 },
 
                 Event::KeyDown { keycode: Some(Keycode::A), ..} => {
-                    pos_x -= 10;
-                    pos_x = pos_x.clamp(0, 770);
+                    spaceship_x -= 10;
+                    spaceship_x = spaceship_x.clamp(0, 770);
                 },
 
                 Event::KeyDown { keycode: Some(Keycode::D), ..} => {
-                    pos_x += 10;
-                    pos_x = pos_x.clamp(0, 770);
+                    spaceship_x += 10;
+                    spaceship_x = spaceship_x.clamp(0, 770);
                 },
 
                 // Testing if health works
-                Event::KeyDown { keycode: Some(Keycode::Space), .. } => {
-                    for alien in aliens.iter_mut() {
-                        alien.take_damage(1);
+                // Event::KeyDown { keycode: Some(Keycode::Space), .. } => {
+                //     for alien in aliens.iter_mut() {
+                //         alien.take_damage(1);
+                //     }
+                // }
+
+                Event::KeyDown { keycode: Some(Keycode::Space), repeat: false, .. } => {
+                    if last_shot.elapsed() >= fire_cooldown {
+                        // spawn from the cannon tip (center column of the 3-wide sprite)
+                        let tip_x = spaceship_x + (spaceship_width / 2) - (PIXEL as i32 / 2);
+                        let tip_y = spaceship_y - PIXEL as i32 * 2;
+                        bullets.push(Bullet::new(tip_x, tip_y));
+                        last_shot = Instant::now();
                     }
                 }
 
