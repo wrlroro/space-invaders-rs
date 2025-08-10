@@ -7,7 +7,10 @@ use sdl2::{
     rect::Rect,
 };
 
-use std::time::Duration;
+use std::time::{
+    Duration,
+    Instant,
+};
 
 const PIXEL: u32 = 10;
 const WINDOW_W: i32 = 800;
@@ -150,6 +153,10 @@ pub fn main() {
         Alien::new(alien_2.clone(), 450, 100, 5),
     ];
 
+    let mut bullets: Vec<Bullet> = Vec::new();
+    let mut last_shot = Instant::now();
+    let fire_cooldown = Duration::from_millis(200);
+
     let mut i = 0;
     'running: loop {
         i = (i + 1) % 255;
@@ -199,6 +206,22 @@ pub fn main() {
                 _ => {}
             }
         }
+        
+        for b in &mut bullets { b.update(); }
+        for b in &bullets { b.draw(&mut canvas); }
+
+        for b in &mut bullets {
+            if !b.alive { continue; }
+            for a in &mut aliens {
+                if !a.alive { continue; }
+                if b.rect().has_intersection(a.rect()) {
+                    a.take_damage(1);
+                    b.alive = false;
+                    break;
+                }
+            }
+        }
+
         canvas.present();
         ::std::thread::sleep(Duration::from_millis(1000 / 60));
     }
