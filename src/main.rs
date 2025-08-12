@@ -3,7 +3,10 @@ extern crate sdl2;
 use sdl2::{
     pixels::Color,
     event::Event,
-    keyboard::Keycode,
+    keyboard::{
+        Scancode,
+        Keycode,
+    },
     rect::Rect,
 };
 
@@ -142,15 +145,19 @@ pub fn main() {
     let mut canvas = window.into_canvas().build().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
 
+    let mut aliens_x = 400;
+    let mut aliens_y = 300;
     let mut aliens = vec![
-        Alien::new(alien_1.clone(), 100, 200, 3),
-        Alien::new(alien_1.clone(), 200, 200, 3),
-        Alien::new(alien_1.clone(), 300, 200, 3),
-        Alien::new(alien_1.clone(), 400, 200, 3),
-        Alien::new(alien_1.clone(), 500, 200, 3),
-        Alien::new(alien_2.clone(), 150, 100, 5),
-        Alien::new(alien_2.clone(), 300, 100, 5),
-        Alien::new(alien_2.clone(), 450, 100, 5),
+        Alien::new(alien_1.clone(), aliens_x - 300, aliens_y - 100, 3),
+        Alien::new(alien_1.clone(), aliens_x - 200, aliens_y - 100, 3),
+        Alien::new(alien_1.clone(), aliens_x - 100, aliens_y - 100, 3),
+        Alien::new(alien_1.clone(), aliens_x, aliens_y - 100, 3),
+        Alien::new(alien_1.clone(), aliens_x + 100, aliens_y - 100, 3),
+        Alien::new(alien_1.clone(), aliens_x + 200, aliens_y - 100, 3),
+        Alien::new(alien_1.clone(), aliens_x + 300, aliens_y - 100, 3),
+        Alien::new(alien_2.clone(), aliens_x - 150, aliens_y, 5),
+        Alien::new(alien_2.clone(), aliens_x, aliens_y, 5),
+        Alien::new(alien_2.clone(), aliens_x + 150, aliens_y, 5),
     ];
 
     let mut bullets: Vec<Bullet> = Vec::new();
@@ -169,44 +176,66 @@ pub fn main() {
             alien.draw(&mut canvas);
         }
 
+        
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} |
                 Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                     break 'running
                 },
-
-                Event::KeyDown { keycode: Some(Keycode::A), ..} => {
-                    spaceship_x -= 10;
-                    spaceship_x = spaceship_x.clamp(0, 770);
-                },
-
-                Event::KeyDown { keycode: Some(Keycode::D), ..} => {
-                    spaceship_x += 10;
-                    spaceship_x = spaceship_x.clamp(0, 770);
-                },
-
-                // Testing if health works
-                // Event::KeyDown { keycode: Some(Keycode::Space), .. } => {
-                //     for alien in aliens.iter_mut() {
-                //         alien.take_damage(1);
+                
+                // Event::KeyDown { keycode: Some(Keycode::A), ..} => {
+                //     spaceship_x -= 10;
+                //     spaceship_x = spaceship_x.clamp(0, 770);
+                // },
+                //
+                // Event::KeyDown { keycode: Some(Keycode::D), ..} => {
+                //     spaceship_x += 10;
+                //     spaceship_x = spaceship_x.clamp(0, 770);
+                // },
+                //
+                // // Testing if health works
+                // // Event::KeyDown { keycode: Some(Keycode::Space), .. } => {
+                // //     for alien in aliens.iter_mut() {
+                // //         alien.take_damage(1);
+                // //     }
+                // // }
+                //
+                // Event::KeyDown { keycode: Some(Keycode::Space), repeat: false, .. } => {
+                //     if last_shot.elapsed() >= fire_cooldown {
+                //         // spawn from the cannon tip (center column of the 3-wide sprite)
+                //         let tip_x = spaceship_x + (spaceship_width / 2) - (PIXEL as i32 / 2);
+                //         let tip_y = spaceship_y - PIXEL as i32 * 2;
+                //         bullets.push(Bullet::new(tip_x, tip_y));
+                //         last_shot = Instant::now();
                 //     }
                 // }
-
-                Event::KeyDown { keycode: Some(Keycode::Space), repeat: false, .. } => {
-                    if last_shot.elapsed() >= fire_cooldown {
-                        // spawn from the cannon tip (center column of the 3-wide sprite)
-                        let tip_x = spaceship_x + (spaceship_width / 2) - (PIXEL as i32 / 2);
-                        let tip_y = spaceship_y - PIXEL as i32 * 2;
-                        bullets.push(Bullet::new(tip_x, tip_y));
-                        last_shot = Instant::now();
-                    }
-                }
 
                 _ => {}
             }
         }
-        
+
+        let key_state  = event_pump.keyboard_state();
+
+        if key_state.is_scancode_pressed(Scancode::A) {            
+            spaceship_x -= 5;
+            spaceship_x = spaceship_x.clamp(0, 770);
+        }
+
+        if key_state.is_scancode_pressed(Scancode::D) {
+            spaceship_x += 5;
+            spaceship_x = spaceship_x.clamp(0, 770);
+        }
+
+        if key_state.is_scancode_pressed(Scancode::Space) {
+            if last_shot.elapsed() >= fire_cooldown {
+                let tip_x = spaceship_x + (spaceship_width / 2) - (PIXEL as i32 / 2);
+                let tip_y = spaceship_y - PIXEL as i32 * 2;
+                bullets.push(Bullet::new(tip_x, tip_y));
+                last_shot = Instant::now();
+            }
+        }
+
         for b in &mut bullets { b.update(); }
         for b in &bullets { b.draw(&mut canvas); }
 
