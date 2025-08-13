@@ -24,28 +24,30 @@ struct Alien {
     sprite: Vec<Vec<i32>>,
     x: i32,
     y: i32,
-    current_health: i32,
+    // current_health: i32,
     alive: bool,
 }
 
 impl Alien {
-    fn new(sprite: Vec<Vec<i32>>, x: i32, y: i32, current_health: i32) -> Self {
+    // fn new(sprite: Vec<Vec<i32>>, x: i32, y: i32, current_health: i32) -> Self {
+    fn new(sprite: Vec<Vec<i32>>, x: i32, y: i32) -> Self {
         Self {
             sprite,
             x,
             y,
-            current_health,
+            // current_health,
             alive: true,
         }
     }
 
-    fn take_damage(&mut self, damage: i32) {
-        if !self.alive { return; }
-        self.current_health = (self.current_health - damage).max(0);
-        if self.current_health == 0 {
-            self.alive = false;
-        }
-    }
+    // fn take_damage(&mut self, damage: i32) {
+    //     if !self.alive { return; }
+    //     if self.alive { self.alive = false; }
+        // self.current_health = (self.current_health - damage).max(0);
+        // if self.current_health == 0 {
+        //     self.alive = false;
+        // }
+    // }
      
     fn draw(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         if !self.alive { return; }
@@ -60,6 +62,29 @@ impl Alien {
 
 }
 
+fn spawner_grid(
+    origin: (i32, i32),
+    rows: u32,
+    cols: u32,
+    sprite: &Vec<Vec<i32>>,
+    // health: i32,
+) -> Vec<Alien> {
+    let (ox, oy) = origin;
+
+    (0..rows)
+        .flat_map(|r| {
+            (0..cols).map(move |c| {
+                Alien::new(
+                    sprite.clone(),
+                    ox + c as i32 * ((sprite[0].len() + 2) * PIXEL as usize) as i32,
+                    oy + r as i32 * ((sprite.len() + 3) * PIXEL as usize) as i32,
+                    // health,
+                )
+            })
+        })
+        .collect()
+}
+
 struct Bullet {
     x: i32,
     y: i32,
@@ -71,7 +96,7 @@ struct Bullet {
 
 impl Bullet {
     fn new(x:i32, y: i32) -> Self {
-        Self { x, y, vy: 12, w: PIXEL, h: PIXEL * 2, alive: true }
+        Self { x, y, vy: 6, w: PIXEL, h: PIXEL * 2, alive: true }
     }
 
     fn update(&mut self) {
@@ -122,14 +147,16 @@ pub fn main() {
 
 
     let alien_1 = vec![
-        vec![1, 1, 1],
-        vec![0, 1, 0],
-        vec![1, 0, 1],
+        vec![1, 1, 1, 1],
+        vec![0, 1, 1, 0],
+        vec![1, 0, 0, 1],
+        vec![1, 0, 0, 1],
     ];
 
     let alien_2 = vec![
         vec![1, 1, 1, 1],
         vec![0, 1, 1, 0],
+        vec![1, 0, 0, 1],
         vec![0, 1, 1, 0],
     ];
 
@@ -145,24 +172,13 @@ pub fn main() {
     let mut canvas = window.into_canvas().build().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
 
-    let mut aliens_x = 400;
-    let mut aliens_y = 300;
-    let mut aliens = vec![
-        Alien::new(alien_1.clone(), aliens_x - 300, aliens_y - 100, 3),
-        Alien::new(alien_1.clone(), aliens_x - 200, aliens_y - 100, 3),
-        Alien::new(alien_1.clone(), aliens_x - 100, aliens_y - 100, 3),
-        Alien::new(alien_1.clone(), aliens_x, aliens_y - 100, 3),
-        Alien::new(alien_1.clone(), aliens_x + 100, aliens_y - 100, 3),
-        Alien::new(alien_1.clone(), aliens_x + 200, aliens_y - 100, 3),
-        Alien::new(alien_1.clone(), aliens_x + 300, aliens_y - 100, 3),
-        Alien::new(alien_2.clone(), aliens_x - 150, aliens_y, 5),
-        Alien::new(alien_2.clone(), aliens_x, aliens_y, 5),
-        Alien::new(alien_2.clone(), aliens_x + 150, aliens_y, 5),
-    ];
+    let mut aliens = Vec::new();
+    aliens.extend(spawner_grid((50, 100), 2, 12, &alien_2.clone()));
+    aliens.extend(spawner_grid((50, 240), 2, 12, &alien_1.clone()));
 
     let mut bullets: Vec<Bullet> = Vec::new();
     let mut last_shot = Instant::now();
-    let fire_cooldown = Duration::from_millis(200);
+    let fire_cooldown = Duration::from_millis(400);
 
     let mut i = 0;
     'running: loop {
@@ -244,7 +260,7 @@ pub fn main() {
             for a in &mut aliens {
                 if !a.alive { continue; }
                 if b.rect().has_intersection(a.rect()) {
-                    a.take_damage(1);
+                    a.alive = false;
                     b.alive = false;
                     break;
                 }
