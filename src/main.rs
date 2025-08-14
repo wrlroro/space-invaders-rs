@@ -24,31 +24,19 @@ struct Alien {
     sprite: Vec<Vec<i32>>,
     x: i32,
     y: i32,
-    // current_health: i32,
     alive: bool,
 }
 
 impl Alien {
-    // fn new(sprite: Vec<Vec<i32>>, x: i32, y: i32, current_health: i32) -> Self {
     fn new(sprite: Vec<Vec<i32>>, x: i32, y: i32) -> Self {
         Self {
             sprite,
             x,
             y,
-            // current_health,
             alive: true,
         }
     }
 
-    // fn take_damage(&mut self, damage: i32) {
-    //     if !self.alive { return; }
-    //     if self.alive { self.alive = false; }
-        // self.current_health = (self.current_health - damage).max(0);
-        // if self.current_health == 0 {
-        //     self.alive = false;
-        // }
-    // }
-     
     fn draw(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         if !self.alive { return; }
         drawing(canvas, &self.sprite, self.x, self.y)
@@ -67,7 +55,6 @@ fn spawner_grid(
     rows: u32,
     cols: u32,
     sprite: &Vec<Vec<i32>>,
-    // health: i32,
 ) -> Vec<Alien> {
     let (ox, oy) = origin;
 
@@ -78,7 +65,6 @@ fn spawner_grid(
                     sprite.clone(),
                     ox + c as i32 * ((sprite[0].len() + 2) * PIXEL as usize) as i32,
                     oy + r as i32 * ((sprite.len() + 3) * PIXEL as usize) as i32,
-                    // health,
                 )
             })
         })
@@ -200,33 +186,6 @@ pub fn main() {
                     break 'running
                 },
                 
-                // Event::KeyDown { keycode: Some(Keycode::A), ..} => {
-                //     spaceship_x -= 10;
-                //     spaceship_x = spaceship_x.clamp(0, 770);
-                // },
-                //
-                // Event::KeyDown { keycode: Some(Keycode::D), ..} => {
-                //     spaceship_x += 10;
-                //     spaceship_x = spaceship_x.clamp(0, 770);
-                // },
-                //
-                // // Testing if health works
-                // // Event::KeyDown { keycode: Some(Keycode::Space), .. } => {
-                // //     for alien in aliens.iter_mut() {
-                // //         alien.take_damage(1);
-                // //     }
-                // // }
-                //
-                // Event::KeyDown { keycode: Some(Keycode::Space), repeat: false, .. } => {
-                //     if last_shot.elapsed() >= fire_cooldown {
-                //         // spawn from the cannon tip (center column of the 3-wide sprite)
-                //         let tip_x = spaceship_x + (spaceship_width / 2) - (PIXEL as i32 / 2);
-                //         let tip_y = spaceship_y - PIXEL as i32 * 2;
-                //         bullets.push(Bullet::new(tip_x, tip_y));
-                //         last_shot = Instant::now();
-                //     }
-                // }
-
                 _ => {}
             }
         }
