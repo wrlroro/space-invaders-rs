@@ -37,6 +37,19 @@ impl Alien {
         }
     }
 
+    fn w(&self) -> i32 {
+        (self.sprite.get(0).map(|r| r.len()).unwrap_or(0) as u32) * PIXEL
+    }
+
+    fn h(&self) -> i32 {
+        (self.sprite.len() as u32) * PIXEL
+    }
+
+    fn translate(&mut self, dx: i32, dy: i32) {
+        self.x += dx;
+        self.y += dy;
+    }
+
     fn draw(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         if !self.alive { return; }
         drawing(canvas, &self.sprite, self.x, self.y)
@@ -69,6 +82,19 @@ fn spawner_grid(
             })
         })
         .collect()
+}
+
+fn fleet_manager(aliens: &[Alien]) -> Option<(i32, i32, i32)> {
+    let mut min_x = 0;
+    let mut max_x = 0;
+    let mut max_y = 0;
+
+    for a in aliens.iter().filter(|a| a.alive) {
+        let (x, y, w, h) = (a.x, a.y, a.w(), a.h());
+        if x < min_x { min_x = x; }
+        if x + w > max_x { max_x = x + w; }
+        if y > max_y { max_y = y; }
+    }
 }
 
 struct Bullet {
@@ -162,6 +188,13 @@ pub fn main() {
     aliens.extend(spawner_grid((50, 100), 2, 12, &alien_2.clone()));
     aliens.extend(spawner_grid((50, 240), 2, 12, &alien_1.clone()));
 
+    // alien fleet
+    let mut direction: i32 = 1;
+    let mut step_timer = Instant::now();
+    let mut step_interval = Duration::from_millis(600);
+    let step = PIXEL as i32;
+    let drop = PIXEL as i32 * 2;
+    
     let mut bullets: Vec<Bullet> = Vec::new();
     let mut last_shot = Instant::now();
     let fire_cooldown = Duration::from_millis(400);
@@ -208,6 +241,31 @@ pub fn main() {
                 let tip_y = spaceship_y - PIXEL as i32 * 2;
                 bullets.push(Bullet::new(tip_x, tip_y));
                 last_shot = Instant::now();
+            }
+        }
+
+        if step_timer.elapsed() >= step_interval {
+            let mut descend = false;
+
+            if let Some((min_x, max_x, _max_y)) = fleet_manager(&aliens) {
+                let left_limit = 10;
+                let right_limit = WINDOW_W - 10;
+
+                if direction > 0 && max_x + step >= right_limit {
+                    direction = -1;
+                    descend = true;
+                }
+                if direction < 0 && min_x - step <= left_limit {
+                    direction = 1;
+                    descend = true;
+                }
+            }
+
+            let dx = direction * step;
+            let dy = if descend { drop } else { 0 };
+
+            for a in aliens.iter_mut().filter(|a| a.alive) {
+                a.translate(if descend { 0 } else { dx }, dy);
             }
         }
 
