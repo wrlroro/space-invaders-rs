@@ -4,7 +4,6 @@ Trying to make space invaders from zero on Rust as one of the projects suggested
 
 ## To-do
 
-- Make the aliens move
 - Alien waves
 - Spaceship lives
 - Point system

@@ -38,11 +38,11 @@ impl Alien {
     }
 
     fn w(&self) -> i32 {
-        (self.sprite.get(0).map(|r| r.len()).unwrap_or(0) as u32) * PIXEL
+        (self.sprite.get(0).map(|r| r.len()).unwrap_or(0) as i32) * PIXEL as i32
     }
 
     fn h(&self) -> i32 {
-        (self.sprite.len() as u32) * PIXEL
+        (self.sprite.len() as i32) * PIXEL as i32
     }
 
     fn translate(&mut self, dx: i32, dy: i32) {
@@ -88,13 +88,22 @@ fn fleet_manager(aliens: &[Alien]) -> Option<(i32, i32, i32)> {
     let mut min_x = 0;
     let mut max_x = 0;
     let mut max_y = 0;
+    let mut first = true;
 
     for a in aliens.iter().filter(|a| a.alive) {
         let (x, y, w, h) = (a.x, a.y, a.w(), a.h());
-        if x < min_x { min_x = x; }
-        if x + w > max_x { max_x = x + w; }
-        if y > max_y { max_y = y; }
+        if first {
+            min_x = x;
+            max_x = x + w;
+            max_y = y + h;
+            first = false;
+        } else {
+            if x < min_x { min_x = x; }
+            if x + w > max_x { max_x = x + w; }
+            if y > max_y { max_y = y; }
+        }
     }
+    Some((min_x, max_x, max_y))
 }
 
 struct Bullet {
@@ -191,7 +200,7 @@ pub fn main() {
     // alien fleet
     let mut direction: i32 = 1;
     let mut step_timer = Instant::now();
-    let mut step_interval = Duration::from_millis(600);
+    let step_interval = Duration::from_millis(600);
     let step = PIXEL as i32;
     let drop = PIXEL as i32 * 2;
     
@@ -267,6 +276,8 @@ pub fn main() {
             for a in aliens.iter_mut().filter(|a| a.alive) {
                 a.translate(if descend { 0 } else { dx }, dy);
             }
+            
+            step_timer = Instant::now();
         }
 
         for b in &mut bullets { b.update(); }
