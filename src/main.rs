@@ -200,7 +200,7 @@ pub fn main() {
     // alien fleet
     let mut direction: i32 = 1;
     let mut step_timer = Instant::now();
-    let step_interval = Duration::from_millis(600);
+    let mut step_interval = Duration::from_millis(600);
     let step = PIXEL as i32;
     let drop = PIXEL as i32 * 2;
     
@@ -213,6 +213,8 @@ pub fn main() {
         i = (i + 1) % 255;
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
+
+        let total_aliens = aliens.len();
 
         drawing(&mut canvas, &spaceship, spaceship_x, spaceship_y);
 
@@ -278,6 +280,9 @@ pub fn main() {
             }
             
             step_timer = Instant::now();
+            let alive_aliens = aliens.iter().filter(|a| a.alive).count().max(1);
+            let ratio = alive_aliens as f32 / total_aliens as f32; // 1.0 .. 0.0
+            let step_interval = Duration::from_millis((150.0 + 450.0 * ratio) as u64);
         }
 
         for b in &mut bullets { b.update(); }
