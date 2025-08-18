@@ -100,10 +100,17 @@ fn fleet_manager(aliens: &[Alien]) -> Option<(i32, i32, i32)> {
         } else {
             if x < min_x { min_x = x; }
             if x + w > max_x { max_x = x + w; }
-            if y > max_y { max_y = y; }
+            if y + h > max_y { max_y = y + h; }
         }
     }
-    Some((min_x, max_x, max_y))
+    if first { None } else { Some((min_x, max_x, max_y)) }
+}
+
+fn wave(alien_1: &Vec<Vec<i32>>, alien_2: &Vec<Vec<i32>>) -> Vec<Alien> {
+    let mut aliens = Vec::new();
+    aliens.extend(spawner_grid((50, 100), 2, 12, alien_2));
+    aliens.extend(spawner_grid((50, 240), 2, 12, alien_1));
+    aliens 
 }
 
 struct Bullet {
@@ -193,14 +200,15 @@ pub fn main() {
     let mut canvas = window.into_canvas().build().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
 
-    let mut aliens = Vec::new();
-    aliens.extend(spawner_grid((50, 100), 2, 12, &alien_2.clone()));
-    aliens.extend(spawner_grid((50, 240), 2, 12, &alien_1.clone()));
+    let mut aliens = wave(&alien_1, &alien_2);
+    // let mut aliens = Vec::new();
+    // aliens.extend(spawner_grid((50, 100), 2, 12, &alien_2.clone()));
+    // aliens.extend(spawner_grid((50, 240), 2, 12, &alien_1.clone()));
 
     // alien fleet
     let mut direction: i32 = 1;
     let mut step_timer = Instant::now();
-    let mut step_interval = Duration::from_millis(600);
+    let mut step_interval = Duration::from_millis(1200);
     let step = PIXEL as i32;
     let drop = PIXEL as i32 * 2;
     
@@ -282,7 +290,7 @@ pub fn main() {
             step_timer = Instant::now();
             let alive_aliens = aliens.iter().filter(|a| a.alive).count().max(1);
             let ratio = alive_aliens as f32 / total_aliens as f32; // 1.0 .. 0.0
-            let step_interval = Duration::from_millis((150.0 + 450.0 * ratio) as u64);
+            step_interval = Duration::from_millis((400.0 + 800.0 * ratio) as u64);
         }
 
         for b in &mut bullets { b.update(); }
@@ -298,6 +306,14 @@ pub fn main() {
                     break;
                 }
             }
+        }
+
+        if aliens.iter().all(|a| !a.alive) {
+            aliens = wave(&alien_1, &alien_2);
+
+            direction = 1;
+            step_timer = Instant::now();
+            step_interval = Duration::from_millis(1200);
         }
 
         canvas.present();
