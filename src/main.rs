@@ -197,7 +197,7 @@ pub fn main() {
 
     let mut mothership_cd = Duration::from_millis(5000);
     let mut last_trip = Instant::now();
-    let mothership = Alien::new(mothership_sprite.clone(), -100, 10); 
+    let mut mothership = Alien::new(mothership_sprite.clone(), -100, 10); 
 
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
