@@ -173,7 +173,6 @@ pub fn main() {
     let spaceship_y: i32 = WINDOW_H -50;
     let mut spaceship_x: i32 = 100;
 
-
     let alien_1 = vec![
         vec![1, 1, 1, 1],
         vec![0, 1, 1, 0],
@@ -187,6 +186,18 @@ pub fn main() {
         vec![1, 0, 0, 1],
         vec![0, 1, 1, 0],
     ];
+
+    let mothership_sprite = vec![
+        vec![0, 1, 1, 1, 1, 0],
+        vec![1, 1, 1, 1, 1, 1],
+        vec![1, 1, 1, 1, 1, 1],
+        vec![1, 0, 1, 1, 0, 1],
+        vec![1, 0, 0, 0, 0, 1],
+    ];
+
+    let mut mothership_cd = Duration::from_millis(5000);
+    let mut last_trip = Instant::now();
+    let mothership = Alien::new(mothership_sprite.clone(), -100, 10); 
 
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
@@ -226,6 +237,7 @@ pub fn main() {
 
         drawing(&mut canvas, &spaceship, spaceship_x, spaceship_y);
 
+        mothership.draw(&mut canvas);
         for alien in &aliens {
             alien.draw(&mut canvas);
         }
@@ -262,6 +274,21 @@ pub fn main() {
                 last_shot = Instant::now();
             }
         }
+
+        if last_trip.elapsed() >= mothership_cd {
+            if mothership.alive && mothership.x <= 900 {
+                mothership.translate(5, 0);
+            } else { 
+                if mothership.alive {
+                    last_trip = Instant::now();
+                    mothership.x = -100;
+                } else {
+                    mothership_cd = Duration::from_millis(10000);
+                    last_trip = Instant::now();
+                    mothership.x = -100;
+                }
+            }
+        }        
 
         if step_timer.elapsed() >= step_interval {
             let mut descend = false;
