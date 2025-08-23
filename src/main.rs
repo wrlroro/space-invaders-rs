@@ -8,6 +8,7 @@ use sdl2::{
         Keycode,
     },
     rect::Rect,
+    render::TextureQuery,
 };
 
 use std::time::{
@@ -18,6 +19,11 @@ use std::time::{
 const PIXEL: u32 = 10;
 const WINDOW_W: i32 = 800;
 const WINDOW_H: i32 = 600;
+
+enum GameState {
+    TitleScreen,
+    Playing,
+}
 
 #[derive(Clone)]
 struct Alien {
@@ -228,119 +234,157 @@ pub fn main() {
     let fire_cooldown = Duration::from_millis(400);
 
     let mut i = 0;
+    let mut state = GameState::TitleScreen;
+
+    let texture_creator = canvas.texture_creator();
+    let ttf_context = sdl2::ttf::init().unwrap();
+    let font = ttf_context.load_font("assets/PressStart2P-Regular.ttf", 32).unwrap();
+    let title_surface = font
+        .render("Press Enter")
+        .blended(Color::WHITE)
+        .unwrap();
+    let title_texture = texture_creator
+        .create_texture_from_surface(&title_surface)
+        .unwrap();
+    let TextureQuery { width: title_w, height: title_h, .. } = title_texture.query();
+    let target = sdl2::rect::Rect::new(
+        (WINDOW_W - title_w as i32) / 2,
+        (WINDOW_H - title_h as i32) / 2,
+        title_w,
+        title_h,
+    );
+
     'running: loop {
         i = (i + 1) % 255;
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
 
-        let total_aliens = aliens.len();
-
-        drawing(&mut canvas, &spaceship, spaceship_x, spaceship_y);
-
-        mothership.draw(&mut canvas);
-        for alien in &aliens {
-            alien.draw(&mut canvas);
-        }
-
-        
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} |
                 Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                     break 'running
                 },
-                
+                Event::KeyDown { keycode: Some(Keycode::Return), ..} => match state {
+                    GameState::TitleScreen => state = GameState::Playing,
+                    GameState::Playing => {}
+                }
+
                 _ => {}
             }
         }
 
-        let key_state  = event_pump.keyboard_state();
-
-        if key_state.is_scancode_pressed(Scancode::A) {            
-            spaceship_x -= 5;
-            spaceship_x = spaceship_x.clamp(0, 770);
-        }
-
-        if key_state.is_scancode_pressed(Scancode::D) {
-            spaceship_x += 5;
-            spaceship_x = spaceship_x.clamp(0, 770);
-        }
-
-        if key_state.is_scancode_pressed(Scancode::Space) {
-            if last_shot.elapsed() >= fire_cooldown {
-                let tip_x = spaceship_x + (spaceship_width / 2) - (PIXEL as i32 / 2);
-                let tip_y = spaceship_y - PIXEL as i32 * 2;
-                bullets.push(Bullet::new(tip_x, tip_y));
-                last_shot = Instant::now();
+        match state {
+            GameState::TitleScreen => {
+                canvas.copy(&title_texture, None, Some(target)).unwrap();
             }
-        }
 
-        if last_trip.elapsed() >= mothership_cd {
-            if mothership.alive && mothership.x <= 900 {
-                mothership.translate(5, 0);
-            } else { 
-                if mothership.alive {
-                    last_trip = Instant::now();
-                    mothership.x = -100;
-                } else {
-                    mothership_cd = Duration::from_millis(10000);
-                    last_trip = Instant::now();
-                    mothership.x = -100;
+            GameState::Playing => {
+                let total_aliens = aliens.len();
+
+                drawing(&mut canvas, &spaceship, spaceship_x, spaceship_y);
+
+                mothership.draw(&mut canvas);
+                for alien in &aliens {
+                    alien.draw(&mut canvas);
                 }
-            }
-        }        
 
-        if step_timer.elapsed() >= step_interval {
-            let mut descend = false;
+                let key_state  = event_pump.keyboard_state();
 
-            if let Some((min_x, max_x, _max_y)) = fleet_manager(&aliens) {
-                let left_limit = 10;
-                let right_limit = WINDOW_W - 10;
-
-                if direction > 0 && max_x + step >= right_limit {
-                    direction = -1;
-                    descend = true;
+                if key_state.is_scancode_pressed(Scancode::A) {            
+                    spaceship_x -= 5;
+                    spaceship_x = spaceship_x.clamp(0, 770);
                 }
-                if direction < 0 && min_x - step <= left_limit {
+
+                if key_state.is_scancode_pressed(Scancode::D) {
+                    spaceship_x += 5;
+                    spaceship_x = spaceship_x.clamp(0, 770);
+                }
+
+                if key_state.is_scancode_pressed(Scancode::Space) {
+                    if last_shot.elapsed() >= fire_cooldown {
+                        let tip_x = spaceship_x + (spaceship_width / 2) - (PIXEL as i32 / 2);
+                        let tip_y = spaceship_y - PIXEL as i32 * 2;
+                        bullets.push(Bullet::new(tip_x, tip_y));
+                        last_shot = Instant::now();
+                    }
+                }
+
+                if last_trip.elapsed() >= mothership_cd {
+                    if mothership.alive && mothership.x <= 900 {
+                        mothership.translate(5, 0);
+                    } else { 
+                        if mothership.alive {
+                            last_trip = Instant::now();
+                            mothership.x = -100;
+                        } else {
+                            mothership_cd = Duration::from_millis(10000);
+                            last_trip = Instant::now();
+                            mothership.x = -100;
+                            mothership.alive = true;
+                        }
+                    }
+                }        
+
+                if step_timer.elapsed() >= step_interval {
+                    let mut descend = false;
+
+                    if let Some((min_x, max_x, _max_y)) = fleet_manager(&aliens) {
+                        let left_limit = 10;
+                        let right_limit = WINDOW_W - 10;
+
+                        if direction > 0 && max_x + step >= right_limit {
+                            direction = -1;
+                            descend = true;
+                        }
+                        if direction < 0 && min_x - step <= left_limit {
+                            direction = 1;
+                            descend = true;
+                        }
+                    }
+
+                    let dx = direction * step;
+                    let dy = if descend { drop } else { 0 };
+
+                    for a in aliens.iter_mut().filter(|a| a.alive) {
+                        a.translate(if descend { 0 } else { dx }, dy);
+                    }
+
+                    step_timer = Instant::now();
+                    let alive_aliens = aliens.iter().filter(|a| a.alive).count().max(1);
+                    let ratio = alive_aliens as f32 / total_aliens as f32; // 1.0 .. 0.0
+                    step_interval = Duration::from_millis((400.0 + 800.0 * ratio) as u64);
+                }
+
+                for b in &mut bullets { b.update(); }
+                for b in &bullets { b.draw(&mut canvas); }
+
+                for b in &mut bullets {
+                    if !b.alive { continue; }
+
+                    if mothership.alive && b.rect().has_intersection(mothership.rect()) {
+                        mothership.alive = false;
+                        b.alive = false;
+                    }
+
+                    for a in &mut aliens {
+                        if !a.alive { continue; }
+                        if b.rect().has_intersection(a.rect()) {
+                            a.alive = false;
+                            b.alive = false;
+                            break;
+                        }
+                    }
+                }
+
+                if aliens.iter().all(|a| !a.alive) {
+                    aliens = wave(&alien_1, &alien_2);
+
                     direction = 1;
-                    descend = true;
+                    step_timer = Instant::now();
+                    step_interval = Duration::from_millis(1200);
                 }
             }
-
-            let dx = direction * step;
-            let dy = if descend { drop } else { 0 };
-
-            for a in aliens.iter_mut().filter(|a| a.alive) {
-                a.translate(if descend { 0 } else { dx }, dy);
-            }
-            
-            step_timer = Instant::now();
-            let alive_aliens = aliens.iter().filter(|a| a.alive).count().max(1);
-            let ratio = alive_aliens as f32 / total_aliens as f32; // 1.0 .. 0.0
-            step_interval = Duration::from_millis((400.0 + 800.0 * ratio) as u64);
-        }
-
-        for b in &mut bullets { b.update(); }
-        for b in &bullets { b.draw(&mut canvas); }
-
-        for b in &mut bullets {
-            if !b.alive { continue; }
-            for a in &mut aliens {
-                if !a.alive { continue; }
-                if b.rect().has_intersection(a.rect()) {
-                    a.alive = false;
-                    b.alive = false;
-                    break;
-                }
-            }
-        }
-
-        if aliens.iter().all(|a| !a.alive) {
-            aliens = wave(&alien_1, &alien_2);
-
-            direction = 1;
-            step_timer = Instant::now();
-            step_interval = Duration::from_millis(1200);
         }
 
         canvas.present();
