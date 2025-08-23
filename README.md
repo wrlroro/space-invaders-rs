@@ -4,9 +4,7 @@ Trying to make space invaders from zero on Rust as one of the projects suggested
 
 ## To-do
 
-- Alien waves
 - Spaceship lives
 - Point system
-- Add big alien mother ship
 - Add defensive structures
 
