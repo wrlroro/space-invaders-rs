@@ -66,7 +66,6 @@ impl Alien {
         let h = (self.sprite.len() as u32) * PIXEL;
         Rect::new(self.x, self.y, w, h)
     }
-
 }
 
 fn spawner_grid(
@@ -130,7 +129,7 @@ struct Bullet {
 
 impl Bullet {
     fn new(x:i32, y: i32) -> Self {
-        Self { x, y, vy: 6, w: PIXEL, h: PIXEL * 2, alive: true }
+        Self { x, y, vy: 5, w: PIXEL, h: PIXEL * 2, alive: true }
     }
 
     fn update(&mut self) {
@@ -167,6 +166,32 @@ fn drawing(canvas: &mut sdl2::render::Canvas<sdl2::video::Window>, design: &Vec<
     }
 }
 
+fn text_render(
+    text_string: &str,
+    center: bool,
+    canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
+    texture_creator: &sdl2::render::TextureCreator<sdl2::video::WindowContext>,
+    font: &sdl2::ttf::Font
+) {
+    let title_surface = font
+        .render(text_string)
+        .blended(Color::WHITE)
+        .unwrap();
+    let title_texture = texture_creator
+        .create_texture_from_surface(&title_surface)
+        .unwrap();
+    let TextureQuery { width: title_w, height: title_h, .. } = title_texture.query();
+    let target = if center {
+        sdl2::rect::Rect::new(
+            (WINDOW_W - title_w as i32) / 2,
+            (WINDOW_H - title_h as i32) / 2,
+            title_w,
+            title_h,
+        )
+    } else { sdl2::rect::Rect::new(10, 15, title_w, title_h) };
+
+    canvas.copy(&title_texture, None, Some(target)).unwrap();
+}
 
 pub fn main() {
     let spaceship = vec![
@@ -203,7 +228,7 @@ pub fn main() {
 
     let mut mothership_cd = Duration::from_millis(5000);
     let mut last_trip = Instant::now();
-    let mut mothership = Alien::new(mothership_sprite.clone(), -100, 10); 
+    let mut mothership = Alien::new(mothership_sprite.clone(), -100, 20); 
 
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
@@ -231,28 +256,16 @@ pub fn main() {
     
     let mut bullets: Vec<Bullet> = Vec::new();
     let mut last_shot = Instant::now();
-    let fire_cooldown = Duration::from_millis(400);
+    let fire_cooldown = Duration::from_millis(600);
+
+    let texture_creator = canvas.texture_creator();
+    let ttf_context = sdl2::ttf::init().unwrap();
+    let font = ttf_context.load_font("assets/PressStart2P-Regular.ttf", 16).unwrap();
 
     let mut i = 0;
     let mut state = GameState::TitleScreen;
 
-    let texture_creator = canvas.texture_creator();
-    let ttf_context = sdl2::ttf::init().unwrap();
-    let font = ttf_context.load_font("assets/PressStart2P-Regular.ttf", 32).unwrap();
-    let title_surface = font
-        .render("Press Enter")
-        .blended(Color::WHITE)
-        .unwrap();
-    let title_texture = texture_creator
-        .create_texture_from_surface(&title_surface)
-        .unwrap();
-    let TextureQuery { width: title_w, height: title_h, .. } = title_texture.query();
-    let target = sdl2::rect::Rect::new(
-        (WINDOW_W - title_w as i32) / 2,
-        (WINDOW_H - title_h as i32) / 2,
-        title_w,
-        title_h,
-    );
+    let mut score: i32 = 0;
 
     'running: loop {
         i = (i + 1) % 255;
@@ -276,13 +289,18 @@ pub fn main() {
 
         match state {
             GameState::TitleScreen => {
-                canvas.copy(&title_texture, None, Some(target)).unwrap();
+                let press_enter: &str = "Press Enter";
+                text_render(press_enter, true, &mut canvas, &texture_creator, &font);
+                // canvas.copy(&title_texture, None, Some(target)).unwrap();
             }
 
             GameState::Playing => {
                 let total_aliens = aliens.len();
 
                 drawing(&mut canvas, &spaceship, spaceship_x, spaceship_y);
+
+                let score_text = format!("Score: {}", score);
+                text_render(&score_text, false, &mut canvas, &texture_creator, &font);
 
                 mothership.draw(&mut canvas);
                 for alien in &aliens {
@@ -365,6 +383,7 @@ pub fn main() {
                     if mothership.alive && b.rect().has_intersection(mothership.rect()) {
                         mothership.alive = false;
                         b.alive = false;
+                        score += 175;
                     }
 
                     for a in &mut aliens {
@@ -372,6 +391,7 @@ pub fn main() {
                         if b.rect().has_intersection(a.rect()) {
                             a.alive = false;
                             b.alive = false;
+                            score += 20;
                             break;
                         }
                     }
