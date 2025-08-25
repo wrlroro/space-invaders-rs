@@ -129,7 +129,7 @@ struct Bullet {
 
 impl Bullet {
     fn new(x:i32, y: i32) -> Self {
-        Self { x, y, vy: 5, w: PIXEL, h: PIXEL * 2, alive: true }
+        Self { x, y, vy: 6, w: PIXEL, h: PIXEL * 2, alive: true }
     }
 
     fn update(&mut self) {
@@ -253,10 +253,8 @@ pub fn main() {
     let mut step_interval = Duration::from_millis(1200);
     let step = PIXEL as i32;
     let drop = PIXEL as i32 * 2;
-    
-    let mut bullets: Vec<Bullet> = Vec::new();
-    let mut last_shot = Instant::now();
-    let fire_cooldown = Duration::from_millis(600);
+
+    let mut bullet: Option<Bullet> = None;
 
     let texture_creator = canvas.texture_creator();
     let ttf_context = sdl2::ttf::init().unwrap();
@@ -320,11 +318,10 @@ pub fn main() {
                 }
 
                 if key_state.is_scancode_pressed(Scancode::Space) {
-                    if last_shot.elapsed() >= fire_cooldown {
+                    if bullet.is_none() {
                         let tip_x = spaceship_x + (spaceship_width / 2) - (PIXEL as i32 / 2);
                         let tip_y = spaceship_y - PIXEL as i32 * 2;
-                        bullets.push(Bullet::new(tip_x, tip_y));
-                        last_shot = Instant::now();
+                        bullet = Some(Bullet::new(tip_x, tip_y));
                     }
                 }
 
@@ -374,18 +371,15 @@ pub fn main() {
                     step_interval = Duration::from_millis((400.0 + 800.0 * ratio) as u64);
                 }
 
-                for b in &mut bullets { b.update(); }
-                for b in &bullets { b.draw(&mut canvas); }
-
-                for b in &mut bullets {
-                    if !b.alive { continue; }
+                if let Some(b) = bullet.as_mut() {
+                    b.update();
+                    b.draw(&mut canvas);
 
                     if mothership.alive && b.rect().has_intersection(mothership.rect()) {
                         mothership.alive = false;
                         b.alive = false;
                         score += 175;
                     }
-
                     for a in &mut aliens {
                         if !a.alive { continue; }
                         if b.rect().has_intersection(a.rect()) {
@@ -395,11 +389,13 @@ pub fn main() {
                             break;
                         }
                     }
+                    if !b.alive {
+                        bullet = None;
+                    }
                 }
 
                 if aliens.iter().all(|a| !a.alive) {
                     aliens = wave(&alien_1, &alien_2);
-
                     direction = 1;
                     step_timer = Instant::now();
                     step_interval = Duration::from_millis(1200);
