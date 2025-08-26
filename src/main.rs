@@ -23,6 +23,7 @@ const WINDOW_H: i32 = 600;
 enum GameState {
     TitleScreen,
     Playing,
+    Pause,
 }
 
 #[derive(Clone)]
@@ -166,9 +167,16 @@ fn drawing(canvas: &mut sdl2::render::Canvas<sdl2::video::Window>, design: &Vec<
     }
 }
 
+enum Position {
+    Center,
+    TopLeft,
+    BottomLeft,
+    BottomRight,
+}
+
 fn text_render(
     text_string: &str,
-    center: bool,
+    position: Position,
     canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
     texture_creator: &sdl2::render::TextureCreator<sdl2::video::WindowContext>,
     font: &sdl2::ttf::Font
@@ -181,14 +189,17 @@ fn text_render(
         .create_texture_from_surface(&title_surface)
         .unwrap();
     let TextureQuery { width: title_w, height: title_h, .. } = title_texture.query();
-    let target = if center {
-        sdl2::rect::Rect::new(
+    let target = match position {
+        Position::Center => sdl2::rect::Rect::new(
             (WINDOW_W - title_w as i32) / 2,
             (WINDOW_H - title_h as i32) / 2,
             title_w,
             title_h,
-        )
-    } else { sdl2::rect::Rect::new(10, 15, title_w, title_h) };
+        ),
+        Position::TopLeft => sdl2::rect::Rect::new(10, 15, title_w, title_h), 
+        Position::BottomLeft => sdl2::rect::Rect::new(10, WINDOW_H * 4 / 5, title_w, title_h),
+        Position::BottomRight => sdl2::rect::Rect::new(WINDOW_W - 10 - title_w as i32, WINDOW_H * 4 / 5, title_w, title_h),
+    };
 
     canvas.copy(&title_texture, None, Some(target)).unwrap();
 }
@@ -278,7 +289,13 @@ pub fn main() {
                 },
                 Event::KeyDown { keycode: Some(Keycode::Return), ..} => match state {
                     GameState::TitleScreen => state = GameState::Playing,
-                    GameState::Playing => {}
+                    GameState::Playing => {},
+                    GameState::Pause => state = GameState::TitleScreen,
+                }
+                Event::KeyDown { keycode: Some(Keycode::P), ..} => match state {
+                    GameState::Playing => state = GameState::Pause,
+                    GameState::Pause => state = GameState::Playing,
+                    GameState::TitleScreen => {},
                 }
 
                 _ => {}
@@ -288,8 +305,12 @@ pub fn main() {
         match state {
             GameState::TitleScreen => {
                 let press_enter: &str = "Press Enter";
-                text_render(press_enter, true, &mut canvas, &texture_creator, &font);
-                // canvas.copy(&title_texture, None, Some(target)).unwrap();
+                text_render(press_enter, Position::Center, &mut canvas, &texture_creator, &font);
+                score = 0;
+                aliens = wave(&alien_1, &alien_2);
+                mothership = Alien::new(mothership_sprite.clone(), -100, 20); 
+                last_trip = Instant::now();
+                bullet = None;
             }
 
             GameState::Playing => {
@@ -298,7 +319,7 @@ pub fn main() {
                 drawing(&mut canvas, &spaceship, spaceship_x, spaceship_y);
 
                 let score_text = format!("Score: {}", score);
-                text_render(&score_text, false, &mut canvas, &texture_creator, &font);
+                text_render(&score_text, Position::TopLeft, &mut canvas, &texture_creator, &font);
 
                 mothership.draw(&mut canvas);
                 for alien in &aliens {
@@ -400,6 +421,15 @@ pub fn main() {
                     step_timer = Instant::now();
                     step_interval = Duration::from_millis(1200);
                 }
+            }
+
+            GameState::Pause => {
+                let game_paused: &str = "Game Paused";
+                let p_continue: &str = "P to continue";
+                let enter_title: &str = "Enter to go to title";
+                text_render(game_paused, Position::Center, &mut canvas, &texture_creator, &font);
+                text_render(p_continue, Position::BottomLeft, &mut canvas, &texture_creator, &font);
+                text_render(enter_title, Position::BottomRight, &mut canvas, &texture_creator, &font);
             }
         }
 
