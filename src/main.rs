@@ -16,7 +16,7 @@ use std::time::{
     Instant,
 };
 
-const PIXEL: u32 = 10;
+const PIXEL: u32 = 5;
 const WINDOW_W: i32 = 800;
 const WINDOW_H: i32 = 600;
 
@@ -82,8 +82,8 @@ fn spawner_grid(
             (0..cols).map(move |c| {
                 Alien::new(
                     sprite.clone(),
-                    ox + c as i32 * ((sprite[0].len() + 2) * PIXEL as usize) as i32,
-                    oy + r as i32 * ((sprite.len() + 3) * PIXEL as usize) as i32,
+                    ox + c as i32 * ((sprite[0].len() + 4) * PIXEL as usize) as i32,
+                    oy + r as i32 * ((sprite.len() + 6) * PIXEL as usize) as i32,
                 )
             })
         })
@@ -114,9 +114,11 @@ fn fleet_manager(aliens: &[Alien]) -> Option<(i32, i32, i32)> {
 
 fn wave(alien_1: &Vec<Vec<i32>>, alien_2: &Vec<Vec<i32>>) -> Vec<Alien> {
     let mut aliens = Vec::new();
-    aliens.extend(spawner_grid((50, 100), 2, 12, alien_2));
-    aliens.extend(spawner_grid((50, 240), 2, 12, alien_1));
-    aliens 
+    let cols: i32 = 12;
+    let origin_x = WINDOW_W / cols;
+    aliens.extend(spawner_grid((origin_x, WINDOW_H * 2 / 10), 1, cols as u32, alien_1));
+    aliens.extend(spawner_grid((origin_x, WINDOW_H * 3 / 10), 3, cols as u32, alien_2));
+    aliens
 }
 
 struct Bullet {
@@ -170,6 +172,7 @@ fn drawing(canvas: &mut sdl2::render::Canvas<sdl2::video::Window>, design: &Vec<
 enum Position {
     Center,
     TopLeft,
+    TopRight,
     BottomLeft,
     BottomRight,
 }
@@ -197,6 +200,7 @@ fn text_render(
             title_h,
         ),
         Position::TopLeft => sdl2::rect::Rect::new(10, 15, title_w, title_h), 
+        Position::TopRight => sdl2::rect::Rect::new(WINDOW_W - 10 - title_w as i32, 15, title_w, title_h),
         Position::BottomLeft => sdl2::rect::Rect::new(10, WINDOW_H * 4 / 5, title_w, title_h),
         Position::BottomRight => sdl2::rect::Rect::new(WINDOW_W - 10 - title_w as i32, WINDOW_H * 4 / 5, title_w, title_h),
     };
@@ -206,9 +210,11 @@ fn text_render(
 
 pub fn main() {
     let spaceship = vec![
-        vec![0, 1, 0],
-        vec![1, 1, 1],
-        vec![1, 0, 1],
+        vec![0, 0, 1, 0, 0],
+        vec![0, 1, 1, 1, 0],
+        vec![1, 1, 1, 1, 1],
+        vec![1, 1, 0, 1, 1],
+        vec![1, 0, 0, 0, 1],
     ];
 
     let spaceship_width = (spaceship[0].len() as i32) * PIXEL as i32;
@@ -216,25 +222,31 @@ pub fn main() {
     let mut spaceship_x: i32 = 100;
 
     let alien_1 = vec![
-        vec![1, 1, 1, 1],
-        vec![0, 1, 1, 0],
-        vec![1, 0, 0, 1],
-        vec![1, 0, 0, 1],
+        vec![1, 1, 0, 0, 0, 1, 1],
+        vec![0, 1, 1, 1, 1, 1, 0],
+        vec![0, 1, 0, 0, 0, 1, 0],
+        vec![1, 0, 0, 0, 0, 0, 1],
+        vec![1, 0, 0, 0, 0, 0, 1],
+        vec![0, 1, 0, 0, 0, 1, 0],
     ];
 
     let alien_2 = vec![
-        vec![1, 1, 1, 1],
-        vec![0, 1, 1, 0],
-        vec![1, 0, 0, 1],
-        vec![0, 1, 1, 0],
+        vec![1, 1, 0, 1, 0, 1, 1],
+        vec![1, 1, 1, 1, 1, 1, 1],
+        vec![1, 1, 1, 0, 1, 1, 1],
+        vec![0, 1, 0, 0, 0, 1, 0],
+        vec![0, 1, 0, 0, 0, 1, 0],
+        vec![0, 0, 1, 0, 1, 0, 0],
     ];
 
     let mothership_sprite = vec![
-        vec![0, 1, 1, 1, 1, 0],
-        vec![1, 1, 1, 1, 1, 1],
-        vec![1, 1, 1, 1, 1, 1],
-        vec![1, 0, 1, 1, 0, 1],
-        vec![1, 0, 0, 0, 0, 1],
+        vec![0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+        vec![0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+        vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        vec![1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1],
+        vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        vec![0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0],
+        vec![0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0],
     ];
 
     let mut mothership_cd = Duration::from_millis(5000);
@@ -269,7 +281,8 @@ pub fn main() {
 
     let texture_creator = canvas.texture_creator();
     let ttf_context = sdl2::ttf::init().unwrap();
-    let font = ttf_context.load_font("assets/PressStart2P-Regular.ttf", 16).unwrap();
+    let font_big = ttf_context.load_font("assets/PressStart2P-Regular.ttf", 32).unwrap();
+    let font_small = ttf_context.load_font("assets/PressStart2P-Regular.ttf", 16).unwrap();
 
     let mut i = 0;
     let mut state = GameState::TitleScreen;
@@ -305,12 +318,13 @@ pub fn main() {
         match state {
             GameState::TitleScreen => {
                 let press_enter: &str = "Press Enter";
-                text_render(press_enter, Position::Center, &mut canvas, &texture_creator, &font);
+                text_render(press_enter, Position::Center, &mut canvas, &texture_creator, &font_big);
                 score = 0;
                 aliens = wave(&alien_1, &alien_2);
                 mothership = Alien::new(mothership_sprite.clone(), -100, 20); 
                 last_trip = Instant::now();
                 bullet = None;
+                direction = 1;
             }
 
             GameState::Playing => {
@@ -319,7 +333,9 @@ pub fn main() {
                 drawing(&mut canvas, &spaceship, spaceship_x, spaceship_y);
 
                 let score_text = format!("Score: {}", score);
-                text_render(&score_text, Position::TopLeft, &mut canvas, &texture_creator, &font);
+                text_render(&score_text, Position::TopLeft, &mut canvas, &texture_creator, &font_small);
+                let exit_text: &str = "Escape to exit";
+                text_render(exit_text, Position::TopRight, &mut canvas, &texture_creator, &font_small);
 
                 mothership.draw(&mut canvas);
                 for alien in &aliens {
@@ -330,12 +346,12 @@ pub fn main() {
 
                 if key_state.is_scancode_pressed(Scancode::A) {            
                     spaceship_x -= 5;
-                    spaceship_x = spaceship_x.clamp(0, 770);
+                    spaceship_x = spaceship_x.max(0);
                 }
 
                 if key_state.is_scancode_pressed(Scancode::D) {
                     spaceship_x += 5;
-                    spaceship_x = spaceship_x.clamp(0, 770);
+                    spaceship_x = spaceship_x.min(WINDOW_W - spaceship_width);
                 }
 
                 if key_state.is_scancode_pressed(Scancode::Space) {
@@ -389,7 +405,7 @@ pub fn main() {
                     step_timer = Instant::now();
                     let alive_aliens = aliens.iter().filter(|a| a.alive).count().max(1);
                     let ratio = alive_aliens as f32 / total_aliens as f32; // 1.0 .. 0.0
-                    step_interval = Duration::from_millis((400.0 + 800.0 * ratio) as u64);
+                    step_interval = Duration::from_millis((200.0 + 400.0 * ratio) as u64);
                 }
 
                 if let Some(b) = bullet.as_mut() {
@@ -427,9 +443,9 @@ pub fn main() {
                 let game_paused: &str = "Game Paused";
                 let p_continue: &str = "P to continue";
                 let enter_title: &str = "Enter to go to title";
-                text_render(game_paused, Position::Center, &mut canvas, &texture_creator, &font);
-                text_render(p_continue, Position::BottomLeft, &mut canvas, &texture_creator, &font);
-                text_render(enter_title, Position::BottomRight, &mut canvas, &texture_creator, &font);
+                text_render(game_paused, Position::Center, &mut canvas, &texture_creator, &font_big);
+                text_render(p_continue, Position::BottomLeft, &mut canvas, &texture_creator, &font_small);
+                text_render(enter_title, Position::BottomRight, &mut canvas, &texture_creator, &font_small);
             }
         }
 

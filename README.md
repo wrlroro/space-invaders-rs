@@ -5,7 +5,6 @@ Trying to make space invaders from zero on Rust as one of the projects suggested
 ## To-do
 
 - Spaceship lives
-- Point system
 - Add defensive structures
 - Sounds
 
