@@ -131,13 +131,15 @@ struct Bullet {
 }
 
 impl Bullet {
-    fn new(x:i32, y: i32) -> Self {
-        Self { x, y, vy: 6, w: PIXEL, h: PIXEL * 2, alive: true }
+    fn new(x:i32, y: i32, vy: i32) -> Self {
+        Self { x, y, vy, w: PIXEL, h: PIXEL * 2, alive: true }
     }
 
     fn update(&mut self) {
-        self.y -= self.vy;
-        if self.y + self.h as i32 <= 0 { self.alive = false; }
+        self.y += self.vy;
+        if self.y + self.h as i32 <= 0 || self.y >= WINDOW_H { 
+            self.alive = false; 
+        }
     }
 
     fn draw(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
@@ -149,6 +151,26 @@ impl Bullet {
     fn rect(&self) -> Rect { 
         Rect::new(self.x, self.y, self.w, self.h) 
     }
+}
+
+fn overlap_x(a: &Alien, b: &Alien) -> bool {
+    let ax0 = a.x;
+    let ax1 = a.x + a.w();
+    let bx0 = b.x;
+    let bx1 = b.x + b.w();
+    ax0 < bx1 && bx0 < ax1
+}
+
+fn is_bottommost(a: &Alien, aliens: &[Alien]) -> bool {
+    if !a.alive { return false; }
+    !aliens.iter().any(|other| other.alive && overlap_x(a, other) && other.y > a.y)
+}
+
+fn bottom_shooters(aliens: &[Alien]) -> Vec<usize> {
+    aliens.iter().enumerate()
+        .filter(|(_, a)| is_bottommost(a, aliens))
+        .map(|(i, _)| i)
+        .collect()
 }
 
 fn drawing(canvas: &mut sdl2::render::Canvas<sdl2::video::Window>, design: &Vec<Vec<i32>>, x: i32, y: i32) {
@@ -219,7 +241,7 @@ pub fn main() {
 
     let spaceship_width = (spaceship[0].len() as i32) * PIXEL as i32;
     let spaceship_y: i32 = WINDOW_H -50;
-    let mut spaceship_x: i32 = 100;
+    let mut spaceship_x: i32 = WINDOW_W / 2;
 
     let alien_1 = vec![
         vec![1, 1, 0, 0, 0, 1, 1],
@@ -277,7 +299,11 @@ pub fn main() {
     let step = PIXEL as i32;
     let drop = PIXEL as i32 * 2;
 
-    let mut bullet: Option<Bullet> = None;
+    let mut player_bullet: Vec<Bullet> = Vec::new();
+
+    let mut enemy_bullet: Vec<Bullet> = Vec::new();
+    let mut enemy_fire_timer = Instant::now();
+    let mut enemy_fire_interval = Duration::from_millis(900);
 
     let texture_creator = canvas.texture_creator();
     let ttf_context = sdl2::ttf::init().unwrap();
@@ -288,6 +314,7 @@ pub fn main() {
     let mut state = GameState::TitleScreen;
 
     let mut score: i32 = 0;
+    // let mut remaining_lives: i32 = 3;
 
     'running: loop {
         i = (i + 1) % 255;
@@ -323,8 +350,13 @@ pub fn main() {
                 aliens = wave(&alien_1, &alien_2);
                 mothership = Alien::new(mothership_sprite.clone(), -100, 20); 
                 last_trip = Instant::now();
-                bullet = None;
+                player_bullet.clear();
+                enemy_bullet.clear();
+                enemy_fire_timer = Instant::now();
+                enemy_fire_interval = Duration::from_millis(900);
                 direction = 1;
+                spaceship_x = WINDOW_W / 2;
+                // remaining_lives = 3;
             }
 
             GameState::Playing => {
@@ -355,10 +387,10 @@ pub fn main() {
                 }
 
                 if key_state.is_scancode_pressed(Scancode::Space) {
-                    if bullet.is_none() {
+                    if player_bullet.is_empty() {
                         let tip_x = spaceship_x + (spaceship_width / 2) - (PIXEL as i32 / 2);
                         let tip_y = spaceship_y - PIXEL as i32 * 2;
-                        bullet = Some(Bullet::new(tip_x, tip_y));
+                        player_bullet.push(Bullet::new(tip_x, tip_y, -6));
                     }
                 }
 
@@ -408,28 +440,49 @@ pub fn main() {
                     step_interval = Duration::from_millis((200.0 + 400.0 * ratio) as u64);
                 }
 
-                if let Some(b) = bullet.as_mut() {
+                for b in player_bullet.iter_mut() {
                     b.update();
-                    b.draw(&mut canvas);
 
                     if mothership.alive && b.rect().has_intersection(mothership.rect()) {
                         mothership.alive = false;
                         b.alive = false;
                         score += 175;
                     }
-                    for a in &mut aliens {
-                        if !a.alive { continue; }
-                        if b.rect().has_intersection(a.rect()) {
-                            a.alive = false;
-                            b.alive = false;
-                            score += 20;
-                            break;
+
+                    if b.alive { 
+                        for a in &mut aliens {
+                            if !a.alive { continue; }
+                            if b.rect().has_intersection(a.rect()) {
+                                a.alive = false;
+                                b.alive = false;
+                                score += 20;
+                                break;
+                            }
                         }
                     }
-                    if !b.alive {
-                        bullet = None;
-                    }
+
+                    b.draw(&mut canvas);
                 }
+
+                player_bullet.retain(|b| b.alive);
+
+                if enemy_fire_timer.elapsed() >= enemy_fire_interval {
+                    let shooters = bottom_shooters(&aliens);
+                    if !shooters.is_empty() {
+                        let idx = shooters[(i as usize) % shooters.len()];
+                        let a = &aliens[idx];
+                        let bx = a.x + (a.w() / 2) - (PIXEL as i32 / 2);
+                        let by = a.y + a.h();
+                        enemy_bullet.push(Bullet::new(bx, by, 5));
+                    }
+                    enemy_fire_timer = Instant::now();
+                }
+
+                for eb in enemy_bullet.iter_mut() {
+                    eb.update();
+                    eb.draw(&mut canvas);
+                }
+                enemy_bullet.retain(|b| b.alive);
 
                 if aliens.iter().all(|a| !a.alive) {
                     aliens = wave(&alien_1, &alien_2);
