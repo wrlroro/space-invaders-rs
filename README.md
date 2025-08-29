@@ -4,7 +4,7 @@ Trying to make space invaders from zero on Rust as one of the projects suggested
 
 ## To-do
 
-- Spaceship lives
 - Add defensive structures
+- Highscores
 - Sounds
 

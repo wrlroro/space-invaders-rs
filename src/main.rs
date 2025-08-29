@@ -24,6 +24,31 @@ enum GameState {
     TitleScreen,
     Playing,
     Pause,
+    Lost,
+}
+
+#[derive(Clone)]
+struct Player {
+    sprite: Vec<Vec<i32>>,
+    x: i32,
+    y: i32,
+    lives: i32,
+}
+
+impl Player {
+    fn new(sprite: Vec<Vec<i32>>, x: i32, y: i32, lives: i32) -> Self {
+        Self {
+            sprite,
+            x,
+            y,
+            lives,
+        }
+    }
+    fn rect(&self) -> Rect {
+        let w = (self.sprite.get(0).map(|r| r.len()).unwrap_or(0) as u32) * PIXEL;
+        let h = (self.sprite.len() as u32) * PIXEL;
+        Rect::new(self.x, self.y, w, h)
+    }
 }
 
 #[derive(Clone)]
@@ -238,10 +263,11 @@ pub fn main() {
         vec![1, 1, 0, 1, 1],
         vec![1, 0, 0, 0, 1],
     ];
-
+    
+    let mut player = Player::new(spaceship.clone(), WINDOW_W / 2, WINDOW_H - 50, 3);
     let spaceship_width = (spaceship[0].len() as i32) * PIXEL as i32;
-    let spaceship_y: i32 = WINDOW_H -50;
-    let mut spaceship_x: i32 = WINDOW_W / 2;
+    // let spaceship_y: i32 = WINDOW_H -50;
+    // let mut spaceship_x: i32 = WINDOW_W / 2;
 
     let alien_1 = vec![
         vec![1, 1, 0, 0, 0, 1, 1],
@@ -314,7 +340,6 @@ pub fn main() {
     let mut state = GameState::TitleScreen;
 
     let mut score: i32 = 0;
-    // let mut remaining_lives: i32 = 3;
 
     'running: loop {
         i = (i + 1) % 255;
@@ -331,11 +356,13 @@ pub fn main() {
                     GameState::TitleScreen => state = GameState::Playing,
                     GameState::Playing => {},
                     GameState::Pause => state = GameState::TitleScreen,
+                    GameState::Lost => state = GameState::TitleScreen,
                 }
                 Event::KeyDown { keycode: Some(Keycode::P), ..} => match state {
                     GameState::Playing => state = GameState::Pause,
                     GameState::Pause => state = GameState::Playing,
                     GameState::TitleScreen => {},
+                    GameState::Lost => {},
                 }
 
                 _ => {}
@@ -355,19 +382,20 @@ pub fn main() {
                 enemy_fire_timer = Instant::now();
                 enemy_fire_interval = Duration::from_millis(900);
                 direction = 1;
-                spaceship_x = WINDOW_W / 2;
-                // remaining_lives = 3;
+                // spaceship_x = WINDOW_W / 2;
+                player.x = WINDOW_W / 2;
+                player.lives = 3;
             }
 
             GameState::Playing => {
                 let total_aliens = aliens.len();
 
-                drawing(&mut canvas, &spaceship, spaceship_x, spaceship_y);
+                drawing(&mut canvas, &player.sprite, player.x, player.y);
 
                 let score_text = format!("Score: {}", score);
                 text_render(&score_text, Position::TopLeft, &mut canvas, &texture_creator, &font_small);
-                let exit_text: &str = "Escape to exit";
-                text_render(exit_text, Position::TopRight, &mut canvas, &texture_creator, &font_small);
+                // let exit_text: &str = "Escape to exit";
+                // text_render(exit_text, Position::TopRight, &mut canvas, &texture_creator, &font_small);
 
                 mothership.draw(&mut canvas);
                 for alien in &aliens {
@@ -377,19 +405,19 @@ pub fn main() {
                 let key_state  = event_pump.keyboard_state();
 
                 if key_state.is_scancode_pressed(Scancode::A) {            
-                    spaceship_x -= 5;
-                    spaceship_x = spaceship_x.max(0);
+                    player.x -= 5;
+                    player.x = player.x.max(0);
                 }
 
                 if key_state.is_scancode_pressed(Scancode::D) {
-                    spaceship_x += 5;
-                    spaceship_x = spaceship_x.min(WINDOW_W - spaceship_width);
+                    player.x += 5;
+                    player.x = player.x.min(WINDOW_W - spaceship_width);
                 }
 
                 if key_state.is_scancode_pressed(Scancode::Space) {
                     if player_bullet.is_empty() {
-                        let tip_x = spaceship_x + (spaceship_width / 2) - (PIXEL as i32 / 2);
-                        let tip_y = spaceship_y - PIXEL as i32 * 2;
+                        let tip_x = player.x + (spaceship_width / 2) - (PIXEL as i32 / 2);
+                        let tip_y = player.y - PIXEL as i32 * 2;
                         player_bullet.push(Bullet::new(tip_x, tip_y, -6));
                     }
                 }
@@ -480,6 +508,16 @@ pub fn main() {
 
                 for eb in enemy_bullet.iter_mut() {
                     eb.update();
+
+                    if eb.rect().has_intersection(player.rect()) {
+                        player.lives -= 1;
+                        eb.alive = false;
+                        if player.lives < 1 {
+                            state = GameState::Lost;
+                        }
+                        break;
+                    }
+
                     eb.draw(&mut canvas);
                 }
                 enemy_bullet.retain(|b| b.alive);
@@ -499,6 +537,15 @@ pub fn main() {
                 text_render(game_paused, Position::Center, &mut canvas, &texture_creator, &font_big);
                 text_render(p_continue, Position::BottomLeft, &mut canvas, &texture_creator, &font_small);
                 text_render(enter_title, Position::BottomRight, &mut canvas, &texture_creator, &font_small);
+            }
+
+            GameState::Lost => {
+                let game_lost: &str = "You Lost!";
+                let enter_title: &str = "Enter to go to title";
+                let exit_text: &str = "Esc to exit";
+                text_render(game_lost, Position::Center, &mut canvas, &texture_creator, &font_big);
+                text_render(enter_title, Position::BottomLeft, &mut canvas, &texture_creator, &font_small);
+                text_render(exit_text, Position::BottomRight, &mut canvas, &texture_creator, &font_small);
             }
         }
 
