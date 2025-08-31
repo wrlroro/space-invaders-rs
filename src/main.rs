@@ -268,6 +268,17 @@ pub fn main() {
     let spaceship_width = (spaceship[0].len() as i32) * PIXEL as i32;
     // let spaceship_y: i32 = WINDOW_H -50;
     // let mut spaceship_x: i32 = WINDOW_W / 2;
+ 
+    let hearts = vec![
+        vec![0, 1, 0, 1, 0],
+        vec![1, 1, 1, 1, 1],
+        vec![1, 1, 1, 1, 1],
+        vec![0, 1, 1, 1, 0],
+        vec![0, 0, 1, 0 ,0],
+    ];
+
+    let h_w = (hearts[0].len() as i32) * PIXEL as i32;
+    let h_h = (hearts.len() as i32) * PIXEL as i32;
 
     let alien_1 = vec![
         vec![1, 1, 0, 0, 0, 1, 1],
@@ -396,6 +407,13 @@ pub fn main() {
                 text_render(&score_text, Position::TopLeft, &mut canvas, &texture_creator, &font_small);
                 // let exit_text: &str = "Escape to exit";
                 // text_render(exit_text, Position::TopRight, &mut canvas, &texture_creator, &font_small);
+
+                let mut h_x = WINDOW_W - h_w - 10;
+                let h_y = 15;
+                for _ in 0..player.lives {
+                    drawing(&mut canvas, &hearts, h_x, h_y);
+                    h_x -= h_w + 5;
+                }
 
                 mothership.draw(&mut canvas);
                 for alien in &aliens {
