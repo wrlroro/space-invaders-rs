@@ -11,14 +11,18 @@ use sdl2::{
     render::TextureQuery,
 };
 
-use std::time::{
-    Duration,
-    Instant,
+use std::{
+    fs,
+    time::{
+        Duration,
+        Instant,
+    }
 };
 
 const PIXEL: u32 = 5;
 const WINDOW_W: i32 = 800;
 const WINDOW_H: i32 = 600;
+const HIGHSCORE_PATH: &str = "assets/highscore.txt";
 
 enum GameState {
     TitleScreen,
@@ -255,7 +259,20 @@ fn text_render(
     canvas.copy(&title_texture, None, Some(target)).unwrap();
 }
 
+fn load_highscore() -> i32 {
+    fs::read_to_string(HIGHSCORE_PATH)
+        .ok()
+        .and_then(|s| s.trim().parse::<i32>().ok())
+        .unwrap_or(0)
+}
+
+fn save_highscore(score: i32) {
+    let _ = fs::write(HIGHSCORE_PATH, score.to_string());
+}
+
 pub fn main() {
+    let mut high_score: i32 = load_highscore();
+
     let spaceship = vec![
         vec![0, 0, 1, 0, 0],
         vec![0, 1, 1, 1, 0],
@@ -384,6 +401,8 @@ pub fn main() {
             GameState::TitleScreen => {
                 let press_enter: &str = "Press Enter";
                 text_render(press_enter, Position::Center, &mut canvas, &texture_creator, &font_big);
+                let high_text = format!("High Score: {}", high_score);
+                text_render(&high_text, Position::BottomLeft, &mut canvas, &texture_creator, &font_small);
                 score = 0;
                 aliens = wave(&alien_1, &alien_2);
                 mothership = Alien::new(mothership_sprite.clone(), -100, 20); 
@@ -441,7 +460,7 @@ pub fn main() {
                 }
 
                 if last_trip.elapsed() >= mothership_cd {
-                    if mothership.alive && mothership.x <= 900 {
+                    if mothership.alive && mothership.x <= WINDOW_W + mothership.w() {
                         mothership.translate(5, 0);
                     } else { 
                         if mothership.alive {
@@ -493,6 +512,10 @@ pub fn main() {
                         mothership.alive = false;
                         b.alive = false;
                         score += 175;
+                        if score > high_score {
+                            high_score = score;
+                            save_highscore(high_score);
+                        }
                     }
 
                     if b.alive { 
@@ -502,6 +525,10 @@ pub fn main() {
                                 a.alive = false;
                                 b.alive = false;
                                 score += 20;
+                                if score > high_score {
+                                    high_score = score;
+                                    save_highscore(high_score);
+                                } 
                                 break;
                             }
                         }
@@ -558,6 +585,10 @@ pub fn main() {
             }
 
             GameState::Lost => {
+                if score > high_score {
+                    high_score = score;
+                    save_highscore(high_score);
+                }
                 let game_lost: &str = "You Lost!";
                 let enter_title: &str = "Enter to go to title";
                 let exit_text: &str = "Esc to exit";
