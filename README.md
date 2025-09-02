@@ -1,10 +1,14 @@
 # space-invaders-rs
 
-Trying to make space invaders from zero on Rust as one of the projects suggested [here](https://austinhenley.com/blog/challengingprojects.html).
+A space invaders copy using Rust and sdl2.
+<br>Suggested [here](https://austinhenley.com/blog/challengingprojects.html).
 
 ## To-do
 
 - Add defensive structures
-- Highscores
-- Sounds
-
+- Diversify waves
+- Animate sprites
+- Add Sounds
+- Set reset function
+- Inherit sprites
+- Simplify code
