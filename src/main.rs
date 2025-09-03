@@ -13,6 +13,7 @@ use sdl2::{
 
 use std::{
     fs,
+    rc::Rc,
     time::{
         Duration,
         Instant,
@@ -57,28 +58,48 @@ impl Player {
 
 #[derive(Clone)]
 struct Alien {
-    sprite: Vec<Vec<i32>>,
+    // sprite: Vec<Vec<i32>>,
+    frames: Rc<Vec<Vec<Vec<i32>>>>,
+    frame_ix: usize,
+    frame_interval: Duration,
+    last_frame: Instant,
+
     x: i32,
     y: i32,
     alive: bool,
 }
 
 impl Alien {
-    fn new(sprite: Vec<Vec<i32>>, x: i32, y: i32) -> Self {
+    fn new(frames: Rc<Vec<Vec<Vec<i32>>>>, x: i32, y: i32) -> Self {
         Self {
-            sprite,
+            // sprite,
+            frames,
+            frame_ix: 0,
+            frame_interval: Duration::from_millis(800),
+            last_frame: Instant::now(),
             x,
             y,
             alive: true,
         }
     }
 
+    fn current_sprite(&self) -> &Vec<Vec<i32>> {
+        &self.frames[self.frame_ix]
+    }
+
+    fn update_animation(&mut self) {
+        if self.last_frame.elapsed() >= self.frame_interval {
+            self.frame_ix = (self.frame_ix + 1) % self.frames.len();
+            self.last_frame = Instant::now();
+        }
+    }
+
     fn w(&self) -> i32 {
-        (self.sprite.get(0).map(|r| r.len()).unwrap_or(0) as i32) * PIXEL as i32
+        (self.current_sprite().get(0).map(|r| r.len()).unwrap_or(0) as i32) * PIXEL as i32
     }
 
     fn h(&self) -> i32 {
-        (self.sprite.len() as i32) * PIXEL as i32
+        (self.current_sprite().len() as i32) * PIXEL as i32
     }
 
     fn translate(&mut self, dx: i32, dy: i32) {
@@ -88,12 +109,12 @@ impl Alien {
 
     fn draw(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         if !self.alive { return; }
-        drawing(canvas, &self.sprite, self.x, self.y)
+        drawing(canvas, &self.current_sprite(), self.x, self.y)
     }
 
     fn rect(&self) -> Rect {
-        let w = (self.sprite.get(0).map(|r| r.len()).unwrap_or(0) as u32) * PIXEL;
-        let h = (self.sprite.len() as u32) * PIXEL;
+        let w = (self.current_sprite().get(0).map(|r| r.len()).unwrap_or(0) as u32) * PIXEL;
+        let h = (self.current_sprite().len() as u32) * PIXEL;
         Rect::new(self.x, self.y, w, h)
     }
 }
@@ -102,17 +123,26 @@ fn spawner_grid(
     origin: (i32, i32),
     rows: u32,
     cols: u32,
-    sprite: &Vec<Vec<i32>>,
+    // sprite: &Vec<Vec<i32>>,
+    frames: Rc<Vec<Vec<Vec<i32>>>>,
 ) -> Vec<Alien> {
     let (ox, oy) = origin;
 
+    let first = &frames[0];
+    let sprite_h = first.len() as i32;
+    let sprite_w = first.get(0).map(|r| r.len()).unwrap_or(0) as i32;
+
+    let cell_w = (sprite_w + 4) * PIXEL as i32; 
+    let cell_h = (sprite_h + 6) * PIXEL as i32;
+
     (0..rows)
         .flat_map(|r| {
+            let f = frames.clone();
             (0..cols).map(move |c| {
                 Alien::new(
-                    sprite.clone(),
-                    ox + c as i32 * ((sprite[0].len() + 4) * PIXEL as usize) as i32,
-                    oy + r as i32 * ((sprite.len() + 6) * PIXEL as usize) as i32,
+                    f.clone(),
+                    ox + c as i32 * cell_w, 
+                    oy + r as i32 * cell_h, 
                 )
             })
         })
@@ -141,12 +171,21 @@ fn fleet_manager(aliens: &[Alien]) -> Option<(i32, i32, i32)> {
     if first { None } else { Some((min_x, max_x, max_y)) }
 }
 
-fn wave(alien_1: &Vec<Vec<i32>>, alien_2: &Vec<Vec<i32>>) -> Vec<Alien> {
+fn wave(
+    alien_1_a: &Vec<Vec<i32>>, 
+    alien_1_b: &Vec<Vec<i32>>, 
+    alien_2_a: &Vec<Vec<i32>>, 
+    alien_2_b: &Vec<Vec<i32>>
+) -> Vec<Alien> {
     let mut aliens = Vec::new();
     let cols: i32 = 12;
     let origin_x = WINDOW_W / cols;
-    aliens.extend(spawner_grid((origin_x, WINDOW_H * 2 / 10), 1, cols as u32, alien_1));
-    aliens.extend(spawner_grid((origin_x, WINDOW_H * 3 / 10), 3, cols as u32, alien_2));
+
+    let alien_1_frames = Rc::new(vec![alien_1_a.clone(), alien_1_b.clone()]);
+    let alien_2_frames = Rc::new(vec![alien_2_a.clone(), alien_2_b.clone()]);
+
+    aliens.extend(spawner_grid((origin_x, WINDOW_H * 2 / 10), 1, cols as u32, alien_1_frames));
+    aliens.extend(spawner_grid((origin_x, WINDOW_H * 3 / 10), 3, cols as u32, alien_2_frames));
     aliens
 }
 
@@ -297,7 +336,7 @@ pub fn main() {
     let h_w = (hearts[0].len() as i32) * PIXEL as i32;
     let h_h = (hearts.len() as i32) * PIXEL as i32;
 
-    let alien_1 = vec![
+    let alien_1_a = vec![
         vec![1, 1, 0, 0, 0, 1, 1],
         vec![0, 1, 1, 1, 1, 1, 0],
         vec![0, 1, 0, 0, 0, 1, 0],
@@ -306,13 +345,31 @@ pub fn main() {
         vec![0, 1, 0, 0, 0, 1, 0],
     ];
 
-    let alien_2 = vec![
+    let alien_1_b = vec![
+        vec![0, 1, 0, 0, 0, 1, 0],
+        vec![1, 1, 1, 1, 1, 1, 1],
+        vec![1, 1, 0, 0, 0, 1, 1],
+        vec![0, 1, 1, 0, 1, 1, 0],
+        vec![0, 1, 0, 1, 0, 1, 0],
+        vec![1, 0, 0, 1, 0, 0, 1],
+    ];
+
+    let alien_2_a = vec![
         vec![1, 1, 0, 1, 0, 1, 1],
         vec![1, 1, 1, 1, 1, 1, 1],
         vec![1, 1, 1, 0, 1, 1, 1],
         vec![0, 1, 0, 0, 0, 1, 0],
         vec![0, 1, 0, 0, 0, 1, 0],
         vec![0, 0, 1, 0, 1, 0, 0],
+    ];
+
+    let alien_2_b = vec![
+        vec![1, 1, 0, 1, 0, 1, 1],
+        vec![1, 1, 1, 1, 1, 1, 1],
+        vec![1, 0, 1, 1, 1, 0, 1],
+        vec![0, 1, 0, 1, 0, 1, 0],
+        vec![0, 1, 0, 0, 0, 1, 0],
+        vec![0, 1, 1, 0, 1, 1, 0],
     ];
 
     let mothership_sprite = vec![
@@ -327,7 +384,7 @@ pub fn main() {
 
     let mut mothership_cd = Duration::from_millis(5000);
     let mut last_trip = Instant::now();
-    let mut mothership = Alien::new(mothership_sprite.clone(), -100, 20); 
+    let mut mothership = Alien::new(Rc::new(vec![mothership_sprite.clone()]), -100, 20); 
 
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
@@ -341,12 +398,8 @@ pub fn main() {
     let mut canvas = window.into_canvas().build().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
 
-    let mut aliens = wave(&alien_1, &alien_2);
-    // let mut aliens = Vec::new();
-    // aliens.extend(spawner_grid((50, 100), 2, 12, &alien_2.clone()));
-    // aliens.extend(spawner_grid((50, 240), 2, 12, &alien_1.clone()));
+    let mut aliens = wave(&alien_1_a, &alien_1_b, &alien_2_a, &alien_2_b);
 
-    // alien fleet
     let mut direction: i32 = 1;
     let mut step_timer = Instant::now();
     let mut step_interval = Duration::from_millis(1200);
@@ -404,8 +457,8 @@ pub fn main() {
                 let high_text = format!("High Score: {}", high_score);
                 text_render(&high_text, Position::BottomLeft, &mut canvas, &texture_creator, &font_small);
                 score = 0;
-                aliens = wave(&alien_1, &alien_2);
-                mothership = Alien::new(mothership_sprite.clone(), -100, 20); 
+                aliens = wave(&alien_1_a, &alien_1_b, &alien_2_a, &alien_2_b);
+                mothership = Alien::new(Rc::new(vec![mothership_sprite.clone()]), -100, 20); 
                 last_trip = Instant::now();
                 player_bullet.clear();
                 enemy_bullet.clear();
@@ -435,6 +488,11 @@ pub fn main() {
                 }
 
                 mothership.draw(&mut canvas);
+
+                for a in aliens.iter_mut() {
+                    a.update_animation();
+                }
+
                 for alien in &aliens {
                     alien.draw(&mut canvas);
                 }
@@ -568,7 +626,7 @@ pub fn main() {
                 enemy_bullet.retain(|b| b.alive);
 
                 if aliens.iter().all(|a| !a.alive) {
-                    aliens = wave(&alien_1, &alien_2);
+                    aliens = wave(&alien_1_a, &alien_1_b, &alien_2_a, &alien_2_b);
                     direction = 1;
                     step_timer = Instant::now();
                     step_interval = Duration::from_millis(1200);

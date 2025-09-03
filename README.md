@@ -7,7 +7,6 @@ A space invaders copy using Rust and sdl2.
 
 - Add defensive structures
 - Diversify waves
-- Animate sprites
 - Add Sounds
 - Set reset function
 - Inherit sprites
