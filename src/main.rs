@@ -57,6 +57,38 @@ impl Player {
 }
 
 #[derive(Clone)]
+struct Shield {
+    sprite: Vec<Vec<i32>>,
+    x: i32,
+    y: i32,
+    hp: i32,
+    alive: bool,
+}
+
+impl Shield {
+    fn new(sprite: Vec<Vec<i32>>, x: i32, y: i32, hp: i32) -> Self {
+        Self { sprite, x, y, hp, alive: true }
+    }
+
+    fn w(&self) -> i32 { 
+        (self.sprite.get(0).map(|r| r.len()).unwrap_or(0) as i32) * PIXEL as i32 
+    }
+    
+    fn h(&self) -> i32 {
+        (self.sprite.len() as i32) * PIXEL as i32
+    }
+    
+    fn rect(&self) -> Rect { 
+        Rect::new(self.x, self.y, self.w() as u32, self.h() as u32) 
+    }
+
+    fn draw(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
+        if !self.alive { return; }
+        drawing(canvas, &self.sprite, self.x, self.y);
+    }
+}
+
+#[derive(Clone)]
 struct Alien {
     // sprite: Vec<Vec<i32>>,
     frames: Rc<Vec<Vec<Vec<i32>>>>,
@@ -336,6 +368,19 @@ pub fn main() {
     let h_w = (hearts[0].len() as i32) * PIXEL as i32;
     let h_h = (hearts.len() as i32) * PIXEL as i32;
 
+    let shield = vec![
+        vec![0,0,1,1,1,1,1,1,1,1,0,0],
+        vec![0,1,1,1,1,1,1,1,1,1,1,0],
+        vec![1,1,1,1,1,1,1,1,1,1,1,1],
+        vec![1,1,1,1,1,1,1,1,1,1,1,1],
+        vec![1,1,1,1,1,1,1,1,1,1,1,1],
+        vec![1,1,1,1,0,0,0,0,1,1,1,1],
+        vec![1,1,1,0,0,0,0,0,0,1,1,1],
+    ];
+
+    let mut shields: Vec<Shield> = Vec::new();
+    let shield_w = (shield[0].len() as i32) * PIXEL as i32;
+
     let alien_1_a = vec![
         vec![1, 1, 0, 0, 0, 1, 1],
         vec![0, 1, 1, 1, 1, 1, 0],
@@ -468,6 +513,14 @@ pub fn main() {
                 // spaceship_x = WINDOW_W / 2;
                 player.x = WINDOW_W / 2;
                 player.lives = 3;
+
+                shields.clear();
+                let shield_y = WINDOW_H - 150;
+                let shield_hp = 6;
+                let shield_gap = WINDOW_W / 4;
+                shields.push(Shield::new(shield.clone(), shield_gap - shield_w / 2, shield_y, shield_hp));
+                shields.push(Shield::new(shield.clone(), 2 * shield_gap - shield_w / 2, shield_y, shield_hp));
+                shields.push(Shield::new(shield.clone(), 3 * shield_gap - shield_w / 2, shield_y, shield_hp));
             }
 
             GameState::Playing => {
@@ -485,6 +538,10 @@ pub fn main() {
                 for _ in 0..player.lives {
                     drawing(&mut canvas, &hearts, h_x, h_y);
                     h_x -= h_w + 5;
+                }
+
+                for s in &shields {
+                    s.draw(&mut canvas);
                 }
 
                 mothership.draw(&mut canvas);
@@ -566,17 +623,26 @@ pub fn main() {
                 for b in player_bullet.iter_mut() {
                     b.update();
 
-                    if mothership.alive && b.rect().has_intersection(mothership.rect()) {
-                        mothership.alive = false;
-                        b.alive = false;
-                        score += 175;
-                        if score > high_score {
-                            high_score = score;
-                            save_highscore(high_score);
+                    if b.alive {
+                        for s in shields.iter_mut() {
+                            if s.alive && b.rect().has_intersection(s.rect()) {
+                                s.hp -= 1;
+                                if s.hp <= 0 { s.alive = false; }
+                                b.alive = false;
+                                break;
+                            }
                         }
-                    }
+                        if mothership.alive && b.rect().has_intersection(mothership.rect()) {
+                            mothership.alive = false;
+                            b.alive = false;
+                            score += 175;
+                            if score > high_score {
+                                high_score = score;
+                                save_highscore(high_score);
+                            }
+                        }
 
-                    if b.alive { 
+                        // if b.alive { 
                         for a in &mut aliens {
                             if !a.alive { continue; }
                             if b.rect().has_intersection(a.rect()) {
@@ -612,6 +678,17 @@ pub fn main() {
                 for eb in enemy_bullet.iter_mut() {
                     eb.update();
 
+                    if eb.alive {
+                        for s in shields.iter_mut() {
+                            if s.alive && eb.rect().has_intersection(s.rect()) {
+                                s.hp -= 1;
+                                if s.hp <= 0 { s.alive = false; }
+                                eb.alive = false;
+                                break;
+                            }
+                        }
+                    }
+
                     if eb.rect().has_intersection(player.rect()) {
                         player.lives -= 1;
                         eb.alive = false;
@@ -624,6 +701,7 @@ pub fn main() {
                     eb.draw(&mut canvas);
                 }
                 enemy_bullet.retain(|b| b.alive);
+                shields.retain(|s| s.alive);
 
                 if aliens.iter().all(|a| !a.alive) {
                     aliens = wave(&alien_1_a, &alien_1_b, &alien_2_a, &alien_2_b);
