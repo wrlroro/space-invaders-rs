@@ -5,7 +5,6 @@ A space invaders copy using Rust and sdl2.
 
 ## To-do
 
-- Add defensive structures
 - Diversify waves
 - Add Sounds
 - Set reset function
