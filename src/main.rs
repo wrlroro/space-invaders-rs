@@ -341,6 +341,50 @@ fn save_highscore(score: i32) {
     let _ = fs::write(HIGHSCORE_PATH, score.to_string());
 }
 
+fn game_reset(
+    player: &mut Player,
+    aliens: &mut Vec<Alien>,
+    mothership: &mut Alien,
+    mothership_sprite: &Vec<Vec<i32>>,
+    last_trip: &mut Instant,
+    player_bullet: &mut Vec<Bullet>,
+    enemy_bullet: &mut Vec<Bullet>,
+    enemy_fire_timer: &mut Instant,
+    enemy_fire_interval: &mut Duration,
+    direction: &mut i32,
+    shields: &mut Vec<Shield>,
+    shield_sprite: &Vec<Vec<i32>>,
+    shield_w: i32,
+    alien_1_a: &Vec<Vec<i32>>,
+    alien_1_b: &Vec<Vec<i32>>,
+    alien_2_a: &Vec<Vec<i32>>,
+    alien_2_b: &Vec<Vec<i32>>,
+) {
+    *aliens = wave(alien_1_a, alien_1_b, alien_2_a, alien_2_b);
+
+    *mothership = Alien::new(Rc::new(vec![mothership_sprite.clone()]), -100, 20);
+    *last_trip = Instant::now();
+
+    player_bullet.clear();
+    enemy_bullet.clear();
+
+    *enemy_fire_timer = Instant::now();
+    *enemy_fire_interval = Duration::from_millis(900);
+
+    *direction = 1;
+
+    player.x = WINDOW_W / 2;
+    player.lives = 3;
+    
+    shields.clear();
+    let shield_y = WINDOW_H - 150;
+    let shield_hp = 6;
+    let shield_gap = WINDOW_W / 4;
+    shields.push(Shield::new(shield_sprite.clone(), shield_gap - shield_w / 2, shield_y, shield_hp));
+    shields.push(Shield::new(shield_sprite.clone(), 2 * shield_gap - shield_w / 2, shield_y, shield_hp));
+    shields.push(Shield::new(shield_sprite.clone(), 3 * shield_gap - shield_w / 2, shield_y, shield_hp));
+}
+
 pub fn main() {
     let mut high_score: i32 = load_highscore();
 
@@ -502,25 +546,22 @@ pub fn main() {
                 let high_text = format!("High Score: {}", high_score);
                 text_render(&high_text, Position::BottomLeft, &mut canvas, &texture_creator, &font_small);
                 score = 0;
-                aliens = wave(&alien_1_a, &alien_1_b, &alien_2_a, &alien_2_b);
-                mothership = Alien::new(Rc::new(vec![mothership_sprite.clone()]), -100, 20); 
-                last_trip = Instant::now();
-                player_bullet.clear();
-                enemy_bullet.clear();
-                enemy_fire_timer = Instant::now();
-                enemy_fire_interval = Duration::from_millis(900);
-                direction = 1;
-                // spaceship_x = WINDOW_W / 2;
-                player.x = WINDOW_W / 2;
-                player.lives = 3;
-
-                shields.clear();
-                let shield_y = WINDOW_H - 150;
-                let shield_hp = 6;
-                let shield_gap = WINDOW_W / 4;
-                shields.push(Shield::new(shield.clone(), shield_gap - shield_w / 2, shield_y, shield_hp));
-                shields.push(Shield::new(shield.clone(), 2 * shield_gap - shield_w / 2, shield_y, shield_hp));
-                shields.push(Shield::new(shield.clone(), 3 * shield_gap - shield_w / 2, shield_y, shield_hp));
+                game_reset(
+                    &mut player,
+                    &mut aliens,
+                    &mut mothership,
+                    &mothership_sprite,
+                    &mut last_trip,
+                    &mut player_bullet,
+                    &mut enemy_bullet,
+                    &mut enemy_fire_timer,
+                    &mut enemy_fire_interval,
+                    &mut direction,
+                    &mut shields,
+                    &shield,
+                    shield_w,
+                    &alien_1_a, &alien_1_b, &alien_2_a, &alien_2_b,
+                ); 
             }
 
             GameState::Playing => {
