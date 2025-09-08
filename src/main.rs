@@ -207,17 +207,25 @@ fn wave(
     alien_1_a: &Vec<Vec<i32>>, 
     alien_1_b: &Vec<Vec<i32>>, 
     alien_2_a: &Vec<Vec<i32>>, 
-    alien_2_b: &Vec<Vec<i32>>
+    alien_2_b: &Vec<Vec<i32>>,
+    level: u32,
 ) -> Vec<Alien> {
     let mut aliens = Vec::new();
+
+    let (rows_top, rows_mid) = match level % 3 {
+        1 => (1, 3),
+        2 => (2, 2),
+        _ => (1, 4),
+    };
+
     let cols: i32 = 12;
     let origin_x = WINDOW_W / cols;
 
     let alien_1_frames = Rc::new(vec![alien_1_a.clone(), alien_1_b.clone()]);
     let alien_2_frames = Rc::new(vec![alien_2_a.clone(), alien_2_b.clone()]);
 
-    aliens.extend(spawner_grid((origin_x, WINDOW_H * 2 / 10), 1, cols as u32, alien_1_frames));
-    aliens.extend(spawner_grid((origin_x, WINDOW_H * 3 / 10), 3, cols as u32, alien_2_frames));
+    aliens.extend(spawner_grid((origin_x, WINDOW_H * 2 / 10), rows_top as u32, cols as u32, alien_1_frames));
+    aliens.extend(spawner_grid((origin_x, WINDOW_H * (2 + rows_top) / 10), rows_mid as u32, cols as u32, alien_2_frames));
     aliens
 }
 
@@ -359,8 +367,10 @@ fn game_reset(
     alien_1_b: &Vec<Vec<i32>>,
     alien_2_a: &Vec<Vec<i32>>,
     alien_2_b: &Vec<Vec<i32>>,
+    wave_level: &mut u32,
 ) {
-    *aliens = wave(alien_1_a, alien_1_b, alien_2_a, alien_2_b);
+    *wave_level = 1;
+    *aliens = wave(alien_1_a, alien_1_b, alien_2_a, alien_2_b, *wave_level);
 
     *mothership = Alien::new(Rc::new(vec![mothership_sprite.clone()]), -100, 20);
     *last_trip = Instant::now();
@@ -387,6 +397,7 @@ fn game_reset(
 
 pub fn main() {
     let mut high_score: i32 = load_highscore();
+    let mut wave_level: u32 = 1;
 
     let spaceship = vec![
         vec![0, 0, 1, 0, 0],
@@ -487,7 +498,7 @@ pub fn main() {
     let mut canvas = window.into_canvas().build().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
 
-    let mut aliens = wave(&alien_1_a, &alien_1_b, &alien_2_a, &alien_2_b);
+    let mut aliens = wave(&alien_1_a, &alien_1_b, &alien_2_a, &alien_2_b, wave_level);
 
     let mut direction: i32 = 1;
     let mut step_timer = Instant::now();
@@ -561,6 +572,7 @@ pub fn main() {
                     &shield,
                     shield_w,
                     &alien_1_a, &alien_1_b, &alien_2_a, &alien_2_b,
+                    &mut wave_level,
                 ); 
             }
 
@@ -745,7 +757,8 @@ pub fn main() {
                 shields.retain(|s| s.alive);
 
                 if aliens.iter().all(|a| !a.alive) {
-                    aliens = wave(&alien_1_a, &alien_1_b, &alien_2_a, &alien_2_b);
+                    wave_level += 1;
+                    aliens = wave(&alien_1_a, &alien_1_b, &alien_2_a, &alien_2_b, wave_level);
                     direction = 1;
                     step_timer = Instant::now();
                     step_interval = Duration::from_millis(1200);
